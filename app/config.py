@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 from pathlib import Path
@@ -69,8 +70,13 @@ class Settings:
             self.save()
             return
         try:
-            raw = json.loads(self._path.read_text(encoding="utf-8"))
+            # utf-8-sig so a file saved by a Windows editor, byte order mark and
+            # all, does not silently fall back to the defaults.
+            raw = json.loads(self._path.read_text(encoding="utf-8-sig"))
         except (OSError, ValueError):
+            logging.getLogger(__name__).warning(
+                "settings file could not be read, using defaults: %s", self._path
+            )
             return
         merged = dict(DEFAULTS)
         merged.update({k: v for k, v in raw.items() if k in DEFAULTS})
