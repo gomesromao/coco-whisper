@@ -1,0 +1,7 @@
+.venv/
+.pybuild/
+dist/
+__pycache__/
+*.pyc
+captured.npy
+fleurs.json
