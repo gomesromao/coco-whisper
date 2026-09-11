@@ -17,6 +17,7 @@
     --bg:#FFFFFF; --bg-soft:#F7F7F4; --bg-cream:#FAF6EE; --bg-mint:#EAF5EE;
     --fg-1:#07152B; --fg-2:#2A3A55; --fg-3:#5C6B85; --fg-inv:#FFFFFF; --fg-inv-2:#C8D2E2;
     --border:#E6E8EE; --warning:#F4C430;
+    --sky:#2AB7F0; --sky-deep:#1D9BD8;
     --font:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     --maxw:1000px;
@@ -45,8 +46,10 @@
        color:#fff;text-decoration:none;font-weight:700;font-size:16px;padding:15px 26px;
        border-radius:12px;transition:background .15s ease,transform .15s ease}
   .btn:hover{background:var(--green-700);transform:translateY(-1px)}
-  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.28);color:#fff;font-weight:600}
-  .btn.ghost:hover{background:rgba(255,255,255,.08)}
+  /* Sky blue for the Mac build. Navy text on it, because white on this blue
+     only reaches 2.3:1 while navy reaches 7.2:1. */
+  .btn.mac{background:var(--sky);color:var(--navy-900)}
+  .btn.mac:hover{background:var(--sky-deep);color:var(--navy-900)}
   .btn svg{width:18px;height:18px;flex:none}
   .meta{font-size:13px;color:var(--fg-inv-2);margin-top:14px}
   .meta b{color:#fff;font-weight:600}
@@ -129,12 +132,13 @@
     <h1>Dictation that runs on your own computer.</h1>
     <p class="lead">Hold one key, talk, and your words appear wherever your cursor is. Slack, Gmail, the ATS, anywhere. No credits to run out of, no monthly limit, and your voice never leaves your machine.</p>
     <div class="cta" id="downloads">
-      <a class="btn" id="primary-download" href="https://github.com/gomesromao/coco-whisper/releases/latest/download/CoconutWhisper.exe">
+      <a class="btn" id="download-windows" href="https://github.com/gomesromao/coco-whisper/releases/latest/download/CoconutWhisper.exe">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        <span id="primary-label">Download for Windows</span>
+        Download for Windows
       </a>
-      <a class="btn ghost" id="secondary-download" href="https://github.com/gomesromao/coco-whisper/releases/latest/download/CoconutWhisper-macOS-AppleSilicon.zip">
-        <span id="secondary-label">Download for Mac</span>
+      <a class="btn mac" id="download-mac" href="https://github.com/gomesromao/coco-whisper/releases/latest/download/CoconutWhisper-macOS-AppleSilicon.zip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download for Mac
       </a>
     </div>
     <div class="meta">
@@ -273,19 +277,15 @@
 </footer>
 
 <script>
-  // Lead with the download that matches the visitor, keep the other one handy.
+  // Each button keeps its own colour, green for Windows and sky blue for Mac.
+  // On a Mac we only move the Mac one to the front and fix the key name.
   (function () {
     var isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
     if (!isMac) return;
 
-    var base = "https://github.com/gomesromao/coco-whisper/releases/latest/download/";
-    var primary = document.getElementById("primary-download");
-    var secondary = document.getElementById("secondary-download");
-
-    primary.href = base + "CoconutWhisper-macOS-AppleSilicon.zip";
-    document.getElementById("primary-label").textContent = "Download for Mac";
-    secondary.href = base + "CoconutWhisper.exe";
-    document.getElementById("secondary-label").textContent = "Download for Windows";
+    var row = document.getElementById("downloads");
+    var mac = document.getElementById("download-mac");
+    row.insertBefore(mac, row.firstElementChild);
     document.getElementById("key-hint").textContent = "Right Command";
   })();
 </script>
