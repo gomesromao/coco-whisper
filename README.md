@@ -30,10 +30,25 @@ Models download once and run offline after that. On Windows they live in
 `%APPDATA%\CoconutWhisper`; on macOS both sit under
 `~/Library/Application Support/CoconutWhisper`.
 
-The app picks a model based on the machine: turbo when there is a usable NVIDIA
-GPU or 12 or more CPU cores, small from 6 cores, base below that. A GPU is only
-used when the CUDA runtime libraries are actually present, otherwise it falls
-back to the processor instead of crashing.
+The app picks a model based on the machine: turbo when a usable NVIDIA GPU can
+carry it, small otherwise. On a processor the heavy model pulls close to every
+core for seconds at a time, which is slow and makes some machines whine through
+the speakers. Measured on a 12 core desktop, for 13 seconds of speech:
+
+| Model | Threads | Time | Cores pulled |
+| --- | --- | --- | --- |
+| turbo | 8 | 3.1s | 7.8 |
+| small | 4 | 1.1s | 4.3 |
+| turbo on a GPU | - | 0.3s | 1.0 |
+
+### Optional GPU on Windows
+
+Nothing CUDA is bundled, the download would grow by two gigabytes for a benefit
+only desktops with an NVIDIA card can use. Those machines can opt in locally:
+drop the CUDA runtime DLLs into `%LOCALAPPDATA%\CoconutWhisper\cuda` and the app
+registers that folder at startup and runs on the GPU. The DLLs come from
+`pip install nvidia-cublas-cu12 nvidia-cudnn-cu12`. Without that folder the app
+stays on the processor, which is what every team machine does.
 
 ## Running from source
 
