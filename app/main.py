@@ -21,7 +21,13 @@ from .transcribe import Engine
 
 log = logging.getLogger("cocowhisper")
 
-VERSION = "0.1.2"
+VERSION = "0.1.5"
+
+# Only the newest entries keep what was actually said. Older ones keep the
+# timing and language, which is what support questions need, and the file is
+# capped so it cannot grow forever.
+HISTORY_TEXT_ENTRIES = 20
+HISTORY_MAX_ENTRIES = 500
 
 
 def resource_path(*parts: str) -> Path:
@@ -44,6 +50,46 @@ def setup_logging() -> None:
         root.addHandler(logging.StreamHandler())
     for noisy in ("httpx", "httpcore", "huggingface_hub", "urllib3", "filelock"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
+
+
+def trim_history(path: Path) -> None:
+    """Caps the file and drops the text from all but the newest entries."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return
+    lines = [line for line in lines if line.strip()][-HISTORY_MAX_ENTRIES:]
+    cutoff = len(lines) - HISTORY_TEXT_ENTRIES
+    kept = []
+    for index, line in enumerate(lines):
+        if index < cutoff:
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            entry.pop("text", None)
+            line = json.dumps(entry, ensure_ascii=False)
+        kept.append(line)
+    tmp = path.with_suffix(".jsonl.tmp")
+    try:
+        tmp.write_text("\n".join(kept) + "\n", encoding="utf-8")
+        tmp.replace(path)
+    except OSError:
+        log.debug("history trim failed", exc_info=True)
+
+
+def clear_history() -> int:
+    """Removes every stored transcript. Returns how many entries went."""
+    path = data_dir() / "history.jsonl"
+    try:
+        count = len([l for l in path.read_text(encoding="utf-8").splitlines() if l.strip()])
+    except (OSError, UnicodeDecodeError):
+        count = 0
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        log.debug("could not remove the history file", exc_info=True)
+    return count
 
 
 class App:
@@ -218,9 +264,13 @@ class App:
             "model": (self.engine.loaded_key or ("?",))[0],
             "chars": len(text),
         }
+        if self.settings.get("keep_history_text"):
+            entry["text"] = text
         try:
-            with (data_dir() / "history.jsonl").open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps({**entry, "text": text}, ensure_ascii=False) + "\n")
+            path = data_dir() / "history.jsonl"
+            with path.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            trim_history(path)
         except OSError:
             log.debug("history write failed", exc_info=True)
 

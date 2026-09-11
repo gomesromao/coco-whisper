@@ -219,6 +219,16 @@ class SettingsWindow(tk.Toplevel):
         self._dict_text = tk.Text(card, height=3, width=40, font=("Consolas", 9),
                                   relief="solid", borderwidth=1, bg="#FFFFFF")
         self._full(card, self._dict_text)
+
+        self._check(card, "keep_history_text",
+                    "Keep the text of the last 20 dictations, for support")
+        history_row = tk.Frame(card, bg="#FFFFFF")
+        self._history_note = ttk.Label(history_row, text="", style="Muted.TLabel")
+        ttk.Button(history_row, text="Clear history", style="Ghost.TButton",
+                   command=self._clear_history).pack(side="left")
+        self._history_note.pack(side="left", padx=(10, 0))
+        self._full(card, history_row, pady=(6, 2))
+        self._show_history_count()
         existing = self.settings.get("dictionary") or {}
         self._dict_text.insert(
             "1.0", "\n".join(k + " = " + v for k, v in existing.items()))
@@ -258,6 +268,34 @@ class SettingsWindow(tk.Toplevel):
             style="Muted.TLabel"), pady=(6, 0))
 
     # ---------- actions ----------
+
+    def _show_history_count(self) -> None:
+        from .main import data_dir as _dd  # same folder the app writes to
+
+        path = data_dir() / "history.jsonl"
+        try:
+            count = len([l for l in path.read_text(encoding="utf-8").splitlines() if l.strip()])
+        except (OSError, UnicodeDecodeError):
+            count = 0
+        self._history_note.configure(
+            text=(str(count) + " stored") if count else "nothing stored")
+
+    def _clear_history(self) -> None:
+        from tkinter import messagebox
+
+        from .main import clear_history
+
+        if not messagebox.askyesno(
+            "Clear history",
+            "Remove every stored transcript from this computer?\n\n"
+            "This cannot be undone.",
+            parent=self,
+        ):
+            return
+        removed = clear_history()
+        log.info("history cleared, %d entries removed", removed)
+        self._show_history_count()
+        self.app.last_text = ""
 
     def _test_sound(self) -> None:
         """Plays the stop tone at the level the slider is showing."""

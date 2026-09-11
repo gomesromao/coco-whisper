@@ -27,6 +27,7 @@ DEFAULTS: dict = {
     "launch_at_startup": False,
     "max_seconds": 180,
     "dictionary": {},               # spoken form -> written form
+    "keep_history_text": True,  # text of recent dictations, for support
     "save_recordings": False,       # pilot mode: keep audio + text for accuracy testing
 }
 
