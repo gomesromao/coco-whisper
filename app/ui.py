@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import logging
-import os
 import tkinter as tk
 from tkinter import ttk
 
-from . import audio, startup
+from . import audio
 from .config import APP_NAME, data_dir
 from .hotkey import HOTKEY_CHOICES
+from .platform_support import (IS_MAC, open_folder, set_startup,
+                               startup_enabled)
 from .transcribe import LANGUAGES, MODEL_CATALOG, cuda_available
 
 log = logging.getLogger(__name__)
@@ -103,7 +104,7 @@ class SettingsWindow(tk.Toplevel):
         ttk.Button(footer, text="Cancel", style="Ghost.TButton",
                    command=self._close).pack(side="right", padx=(0, 8))
         ttk.Button(footer, text="Open data folder", style="Ghost.TButton",
-                   command=lambda: os.startfile(data_dir())).pack(side="left")
+                   command=lambda: open_folder(data_dir())).pack(side="left")
 
     def _card(self, parent, title: str) -> ttk.Frame:
         ttk.Label(parent, text=title, style="Section.TLabel").pack(
@@ -214,16 +215,21 @@ class SettingsWindow(tk.Toplevel):
         self._auto_label = auto_label
         model = ttk.Combobox(card, textvariable=self._model_var, state="readonly",
                              values=values, width=30)
-        hint = ("This computer has an NVIDIA GPU, the large models will be fast."
-                if cuda_available() else
-                "No NVIDIA GPU found, the app will run on the processor. "
-                "Small is the safe choice on older laptops.")
+        if cuda_available():
+            hint = "This computer has an NVIDIA GPU, the large models will be fast."
+        elif IS_MAC:
+            hint = ("Runs on the processor. Apple Silicon handles Small and Turbo "
+                    "comfortably, older Intel Macs should stay on Small.")
+        else:
+            hint = ("No NVIDIA GPU found, the app will run on the processor. "
+                    "Small is the safe choice on older laptops.")
         self._row(card, "Model", model, hint)
 
         self._check(card, "save_recordings",
                     "Pilot mode: keep the audio and text of each dictation for accuracy testing")
-        self._check(card, "launch_at_startup", "Start with Windows")
-        self._vars["launch_at_startup"].set(startup.is_enabled())
+        self._check(card, "launch_at_startup",
+                    "Start at login" if IS_MAC else "Start with Windows")
+        self._vars["launch_at_startup"].set(startup_enabled())
 
         self._full(card, ttk.Label(
             card, text="Models download once and then run offline.",
@@ -259,7 +265,7 @@ class SettingsWindow(tk.Toplevel):
         values["dictionary"] = _parse_dictionary(self._dict_text.get("1.0", "end"))
 
         launch = values.pop("launch_at_startup", False)
-        startup.set_enabled(bool(launch))
+        set_startup(bool(launch))
         values["launch_at_startup"] = bool(launch)
 
         self.settings.update(values)

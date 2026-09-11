@@ -8,6 +8,7 @@ import threading
 import numpy as np
 
 from .config import models_dir
+from .platform_support import IS_MAC, IS_WINDOWS
 
 log = logging.getLogger(__name__)
 
@@ -51,6 +52,8 @@ CUDA_LIBS = ("cublas64_12.dll", "cudnn_ops64_9.dll")
 
 def _cuda_libs_present() -> bool:
     """A GPU is useless to us without the CUDA runtime libraries."""
+    if not IS_WINDOWS:
+        return True  # only Windows ships these as separate DLLs to look up
     import ctypes
 
     for name in CUDA_LIBS:
@@ -63,6 +66,8 @@ def _cuda_libs_present() -> bool:
 
 
 def cuda_available() -> bool:
+    if IS_MAC:
+        return False  # no CUDA on Apple hardware
     try:
         import ctranslate2
 

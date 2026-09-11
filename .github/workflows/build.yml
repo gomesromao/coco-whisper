@@ -1,0 +1,118 @@
+name: Build
+
+# Builds Windows and macOS from the same source. Pushing a tag such as v0.1.0
+# also publishes the release, so no personal access token is involved.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+      - name: Generate icons
+        run: python build/gen_icons.py
+      - name: Run tests
+        run: python test_core.py
+      - name: Build
+        run: pyinstaller --noconfirm --clean --distpath dist --workpath .pybuild build/CoconutWhisper.spec
+      - name: Verify the executable can load every module it needs
+        shell: bash
+        run: |
+          ls -lh dist/CoconutWhisper.exe
+          ./dist/CoconutWhisper.exe --selftest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/CoconutWhisper.exe
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            label: AppleSilicon
+          - runner: macos-13
+            label: Intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+      - name: Generate icons
+        run: python build/gen_icons.py
+      - name: Build the icns icon
+        run: |
+          mkdir -p icon.iconset
+          for size in 16 32 64 128 256 512; do
+            sips -z $size $size assets/icon.png --out icon.iconset/icon_${size}x${size}.png
+            double=$((size * 2))
+            sips -z $double $double assets/icon.png --out icon.iconset/icon_${size}x${size}@2x.png
+          done
+          iconutil -c icns icon.iconset -o assets/icon.icns
+      - name: Run tests
+        run: python test_core.py
+      - name: Build
+        run: pyinstaller --noconfirm --clean --distpath dist --workpath .pybuild build/CoconutWhisper.spec
+      - name: Sign the bundle
+        # Ad hoc signature. It is not notarised, so Gatekeeper still asks the
+        # user to confirm, but the bundle is at least internally consistent.
+        run: codesign --force --deep --sign - "dist/Coconut Whisper.app"
+      - name: Verify the packaged app can load every module it needs
+        run: |
+          test -d "dist/Coconut Whisper.app"
+          "dist/Coconut Whisper.app/Contents/MacOS/CoconutWhisper" --selftest
+      - name: Zip the app
+        run: |
+          cd dist
+          ditto -c -k --keepParent "Coconut Whisper.app" "CoconutWhisper-macOS-${{ matrix.label }}.zip"
+          ls -lh CoconutWhisper-macOS-${{ matrix.label }}.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.label }}
+          path: dist/CoconutWhisper-macOS-${{ matrix.label }}.zip
+
+  release:
+    needs: [windows, macos]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: List what will be published
+        run: find artifacts -type f -exec ls -lh {} \;
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "Coconut Whisper ${GITHUB_REF_NAME}" \
+            --notes "Local dictation for the team. Hold the dictation key, speak, release.
+
+          Windows: download CoconutWhisper.exe and run it.
+          Mac: download the zip that matches your Mac, unzip it, and move Coconut Whisper to Applications.
+
+          The speech model downloads once on first launch, then everything runs offline." \
+            artifacts/windows/CoconutWhisper.exe \
+            artifacts/macos-AppleSilicon/CoconutWhisper-macOS-AppleSilicon.zip \
+            artifacts/macos-Intel/CoconutWhisper-macOS-Intel.zip

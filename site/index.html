@@ -36,24 +36,27 @@
   .brand-row{display:flex;align-items:center;gap:12px}
 
   .hero{background:linear-gradient(180deg,var(--navy-800) 0%,var(--navy-700) 100%);
-        color:var(--fg-inv);padding:64px 0 72px}
+        color:var(--fg-inv);padding:60px 0 66px}
   .hero h1{font-size:clamp(34px,5.2vw,54px);line-height:1.08;margin:0 0 16px;
            letter-spacing:-0.03em;font-weight:800;max-width:15ch}
-  .hero p.lead{font-size:clamp(16px,2vw,19px);color:var(--fg-inv-2);margin:0 0 32px;max-width:56ch}
-  .cta{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+  .hero p.lead{font-size:clamp(16px,2vw,19px);color:var(--fg-inv-2);margin:0 0 30px;max-width:56ch}
+  .cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
   .btn{display:inline-flex;align-items:center;gap:10px;background:var(--green-600);
-       color:#fff;text-decoration:none;font-weight:700;font-size:16px;padding:15px 28px;
+       color:#fff;text-decoration:none;font-weight:700;font-size:16px;padding:15px 26px;
        border-radius:12px;transition:background .15s ease,transform .15s ease}
   .btn:hover{background:var(--green-700);transform:translateY(-1px)}
-  .btn svg{width:18px;height:18px}
-  .meta{font-size:13px;color:var(--fg-inv-2)}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.28);color:#fff;font-weight:600}
+  .btn.ghost:hover{background:rgba(255,255,255,.08)}
+  .btn svg{width:18px;height:18px;flex:none}
+  .meta{font-size:13px;color:var(--fg-inv-2);margin-top:14px}
   .meta b{color:#fff;font-weight:600}
+  .meta a{color:#fff;text-decoration:underline;text-underline-offset:3px}
 
-  section{padding:56px 0}
+  section{padding:54px 0}
   .soft{background:var(--bg-soft)}
   .cream{background:var(--bg-cream)}
   h2{font-size:clamp(22px,3vw,30px);letter-spacing:-0.02em;margin:0 0 8px;font-weight:800}
-  .sub{color:var(--fg-3);margin:0 0 28px;max-width:62ch}
+  .sub{color:var(--fg-3);margin:0 0 26px;max-width:62ch}
 
   .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
   .step{background:#fff;border:1px solid var(--border);border-radius:14px;padding:22px}
@@ -71,6 +74,9 @@
   .card h3{margin:0 0 10px;font-size:17px;font-weight:700}
   .card p{margin:0 0 10px;color:var(--fg-2);font-size:15px}
   .card p:last-child{margin-bottom:0}
+  .card ol{margin:0;padding-left:20px;color:var(--fg-2);font-size:15px}
+  .card ol li{margin-bottom:8px}
+  .card ol li:last-child{margin-bottom:0}
 
   .langs{display:flex;flex-direction:column;gap:12px;margin:0;padding:0;list-style:none}
   .lang{display:flex;align-items:flex-start;gap:12px}
@@ -83,12 +89,13 @@
 
   .faq{display:grid;gap:12px}
   details{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 18px}
-  details+details{margin-top:0}
   summary{cursor:pointer;font-weight:700;font-size:15.5px;list-style:none}
   summary::-webkit-details-marker{display:none}
   summary::after{content:"+";float:right;color:var(--fg-3);font-weight:700}
   details[open] summary::after{content:"-"}
   details p{margin:12px 0 0;color:var(--fg-2);font-size:14.5px}
+  details code{font-family:var(--mono);font-size:13px;background:var(--bg-soft);
+               padding:2px 6px;border-radius:5px}
 
   .req{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:22px}
   .req div{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px}
@@ -100,8 +107,8 @@
 
   @media (max-width:820px){
     .steps,.cols,.req{grid-template-columns:1fr}
-    .hero{padding:48px 0 56px}
-    section{padding:44px 0}
+    .hero{padding:44px 0 52px}
+    section{padding:42px 0}
   }
 </style>
 </head>
@@ -121,12 +128,18 @@
   <div class="wrap">
     <h1>Dictation that runs on your own computer.</h1>
     <p class="lead">Hold one key, talk, and your words appear wherever your cursor is. Slack, Gmail, the ATS, anywhere. No credits to run out of, no monthly limit, and your voice never leaves your machine.</p>
-    <div class="cta">
-      <a class="btn" href="https://github.com/gomesromao/coco-whisper/releases/latest/download/CoconutWhisper.exe">
+    <div class="cta" id="downloads">
+      <a class="btn" id="primary-download" href="https://github.com/gomesromao/coco-whisper/releases/latest/download/CoconutWhisper.exe">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download for Windows
+        <span id="primary-label">Download for Windows</span>
       </a>
-      <div class="meta">Version <b>0.1.0</b> &nbsp;·&nbsp; 101 MB &nbsp;·&nbsp; Windows 10 and 11, 64 bit</div>
+      <a class="btn ghost" id="secondary-download" href="https://github.com/gomesromao/coco-whisper/releases/latest/download/CoconutWhisper-macOS-AppleSilicon.zip">
+        <span id="secondary-label">Download for Mac</span>
+      </a>
+    </div>
+    <div class="meta">
+      Version <b>0.1.0</b> &nbsp;·&nbsp; Windows 10 and 11, macOS 12 and later &nbsp;·&nbsp;
+      <a id="other-mac" href="https://github.com/gomesromao/coco-whisper/releases/latest/download/CoconutWhisper-macOS-Intel.zip">Intel Mac version</a>
     </div>
   </div>
 </div>
@@ -138,12 +151,12 @@
     <div class="steps">
       <div class="step">
         <div class="num">1</div>
-        <h3>Run the file</h3>
-        <p>No installer and no admin rights. Double click it and a small microphone icon appears next to your clock.</p>
+        <h3>Open it</h3>
+        <p>On Windows, double click the file, no installer needed. On Mac, unzip and drag Coconut Whisper into Applications. A microphone icon appears in your menu bar or next to the clock.</p>
       </div>
       <div class="step">
         <div class="num">2</div>
-        <h3>Hold <kbd>Right Ctrl</kbd></h3>
+        <h3>Hold <kbd id="key-hint">Right Ctrl</kbd></h3>
         <p>Click where you want to write first, then hold the key. A green pill at the bottom of the screen shows it is listening.</p>
       </div>
       <div class="step">
@@ -155,10 +168,35 @@
   </div>
 </section>
 
-<section class="soft">
+<section class="soft" id="mac-setup">
+  <div class="wrap">
+    <h2>First run on a Mac</h2>
+    <p class="sub">macOS is strict with apps that did not come from the App Store, so the first launch has a few extra clicks. You only do this once.</p>
+    <div class="cols">
+      <div class="card">
+        <h3>Opening it the first time</h3>
+        <ol>
+          <li>Unzip the download and move <b>Coconut Whisper</b> into your Applications folder.</li>
+          <li>Right click the app and choose <b>Open</b>, then confirm. A normal double click will be refused the first time.</li>
+          <li>If macOS still blocks it, go to System Settings, Privacy and Security, scroll down and click <b>Open Anyway</b>.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Two permissions it needs</h3>
+        <ol>
+          <li><b>Microphone</b>, so it can hear you. macOS asks the first time you dictate.</li>
+          <li><b>Accessibility</b>, so it can watch for the dictation key and paste the text. Go to System Settings, Privacy and Security, Accessibility, and switch Coconut Whisper on.</li>
+        </ol>
+        <p>Without Accessibility the key does nothing, which is the most common reason it seems dead on a Mac.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
   <div class="wrap">
     <h2>Languages</h2>
-    <p class="sub">Pick a language from the tray menu, or leave it on auto detect. You can switch any time without restarting.</p>
+    <p class="sub">Pick a language from the menu, or leave it on auto detect. You can switch any time without restarting.</p>
     <div class="cols">
       <div class="card">
         <ul class="langs">
@@ -176,11 +214,11 @@
   </div>
 </section>
 
-<section>
+<section class="soft">
   <div class="wrap">
     <h2>What you need</h2>
     <div class="req">
-      <div><b>System</b><span>Windows 10 or 11</span></div>
+      <div><b>System</b><span>Windows 10 or 11, macOS 12 or later</span></div>
       <div><b>Disk</b><span>About 1 GB free</span></div>
       <div><b>Microphone</b><span>Any headset or webcam</span></div>
       <div><b>Internet</b><span>First launch only</span></div>
@@ -197,8 +235,16 @@
         <p>That warning shows on any program without a paid signing certificate. Click More info, then Run anyway. If your antivirus quarantines the file, restore it and allow it.</p>
       </details>
       <details>
+        <summary>My Mac says the app is damaged or cannot be checked for malware</summary>
+        <p>Same story on the Mac side, the app is not notarised with Apple. Right click it and choose Open, or allow it in System Settings, Privacy and Security. If it still refuses, open Terminal and run <code>xattr -dr com.apple.quarantine "/Applications/Coconut Whisper.app"</code>.</p>
+      </details>
+      <details>
+        <summary>Which Mac download do I pick?</summary>
+        <p>Apple menu, About This Mac. If the chip says Apple M1, M2, M3 or newer, take the Apple Silicon file. If it says Intel, take the Intel file.</p>
+      </details>
+      <details>
         <summary>Nothing happens when I hold the key</summary>
-        <p>Check the icon next to the clock. If it is amber the model is still loading, which only takes a moment after the first download. Also make sure you clicked into a text box before holding the key.</p>
+        <p>On a Mac, check that Accessibility permission is granted, that is almost always the cause. On both systems, check the icon: if it is amber the model is still loading. And make sure you clicked into a text box before holding the key.</p>
       </details>
       <details>
         <summary>The text is going into the wrong place</summary>
@@ -206,11 +252,11 @@
       </details>
       <details>
         <summary>It is slow on my laptop</summary>
-        <p>Open Settings from the tray icon and choose a smaller model. Small is a good balance, Base is faster still. The app picks one automatically the first time, based on your computer.</p>
+        <p>Open Settings from the icon and choose a smaller model. Small is a good balance, Base is faster still. The app picks one automatically the first time, based on your computer.</p>
       </details>
       <details>
         <summary>Can I change the key?</summary>
-        <p>Yes. Right click the tray icon, open Settings, and pick another one. You can also switch from holding the key to pressing once to start and once to stop.</p>
+        <p>Yes. Open Settings from the menu bar or tray icon and pick another one. You can also switch from holding the key to pressing once to start and once to stop.</p>
       </details>
       <details>
         <summary>It wrote a word wrong every time</summary>
@@ -225,6 +271,24 @@
     <strong>Coconut Whisper</strong> is an internal tool for the Coconut team. Found a bug or a word it keeps getting wrong? Tell the team and include what you said and what it wrote.
   </div>
 </footer>
+
+<script>
+  // Lead with the download that matches the visitor, keep the other one handy.
+  (function () {
+    var isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+    if (!isMac) return;
+
+    var base = "https://github.com/gomesromao/coco-whisper/releases/latest/download/";
+    var primary = document.getElementById("primary-download");
+    var secondary = document.getElementById("secondary-download");
+
+    primary.href = base + "CoconutWhisper-macOS-AppleSilicon.zip";
+    document.getElementById("primary-label").textContent = "Download for Mac";
+    secondary.href = base + "CoconutWhisper.exe";
+    document.getElementById("secondary-label").textContent = "Download for Windows";
+    document.getElementById("key-hint").textContent = "Right Command";
+  })();
+</script>
 
 </body>
 </html>

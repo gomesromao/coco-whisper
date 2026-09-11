@@ -7,11 +7,17 @@ so there are no API calls, no credits and no audio leaving the computer.
 
 English, Portuguese and Tagalog. The interface is English only.
 
+Windows and macOS from one codebase. Everything platform specific lives in
+`app/platform_support.py`: folders, the start at login entry, the paste
+shortcut (Ctrl on Windows, Command on macOS), the notification tone, the
+single instance lock and the default hotkey.
+
 ## How it works
 
 | Piece | File | Notes |
 | --- | --- | --- |
 | Global hotkey | `app/hotkey.py` | Hold to talk or press to toggle, no admin rights |
+| Platform layer | `app/platform_support.py` | The only file that knows which OS it is on |
 | Microphone | `app/audio.py` | 16 kHz mono capture through sounddevice |
 | Speech to text | `app/transcribe.py` | faster-whisper, CPU int8 or CUDA float16 |
 | Cleanup | `app/postprocess.py` | Filler removal, word replacements, no model involved |
@@ -19,8 +25,10 @@ English, Portuguese and Tagalog. The interface is English only.
 | Tray and state | `app/main.py` | pystray icon, tkinter overlay, single instance guard |
 | Settings window | `app/ui.py` | tkinter, Coconut colours |
 
-Models download once into `%LOCALAPPDATA%\CoconutWhisper\models` and run offline
-after that. Settings, logs and history live in `%APPDATA%\CoconutWhisper`.
+Models download once and run offline after that. On Windows they live in
+`%LOCALAPPDATA%\CoconutWhisper\models` with settings and logs in
+`%APPDATA%\CoconutWhisper`; on macOS both sit under
+`~/Library/Application Support/CoconutWhisper`.
 
 The app picks a model based on the machine: turbo when there is a usable NVIDIA
 GPU or 12 or more CPU cores, small from 6 cores, base below that. A GPU is only
@@ -44,8 +52,22 @@ python -m venv .venv
   --distpath dist --workpath .pybuild build/CoconutWhisper.spec
 ```
 
-The result is a single `dist/CoconutWhisper.exe`, about 100 MB, no installer and
-no Python needed on the target machine.
+On Windows the result is a single `dist/CoconutWhisper.exe`, about 100 MB, with
+no installer and no Python needed on the target machine. On macOS the same spec
+produces `dist/Coconut Whisper.app`, a menu bar app (`LSUIElement`) carrying the
+microphone usage description macOS requires.
+
+Nobody has to own both machines: `.github/workflows/build.yml` builds Windows,
+Apple Silicon and Intel on every tag, runs a packaging selftest on each, and
+publishes the release itself with the workflow token. Tag and push:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+macOS builds are ad hoc signed but not notarised, so Gatekeeper asks the user to
+confirm on first launch, and the app needs Accessibility permission for the
+global hotkey and the paste. The download page explains both.
 
 ## Tests
 
@@ -57,6 +79,10 @@ powershell build/e2e_test.ps1 -Wav path/to/speech.wav
 `test_core.py` covers the text cleanup and hotkey parsing. The PowerShell script
 is a real end to end check: it holds the hotkey, plays speech through the
 speakers, and reads back what was pasted into Notepad.
+
+`python launcher.py --selftest` imports everything the packaged app needs and is
+what CI runs against the built artifacts, since a packaging mistake only shows
+up in the bundle.
 
 ## Accuracy testing
 

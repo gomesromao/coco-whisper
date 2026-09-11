@@ -6,7 +6,9 @@ import threading
 import time
 
 import pyperclip
-from pynput.keyboard import Controller, Key
+from pynput.keyboard import Controller
+
+from .platform_support import paste_modifier
 
 log = logging.getLogger(__name__)
 _keyboard = Controller()
@@ -53,7 +55,7 @@ def deliver(text: str, mode: str = "paste") -> bool:
 
     time.sleep(0.05)
     try:
-        with _keyboard.pressed(Key.ctrl):
+        with _keyboard.pressed(paste_modifier()):
             _keyboard.press("v")
             _keyboard.release("v")
     except Exception:

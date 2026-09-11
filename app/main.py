@@ -1,7 +1,6 @@
 """Coconut Whisper: local push-to-talk dictation for the Coconut team."""
 from __future__ import annotations
 
-import ctypes
 import json
 import logging
 import os
@@ -16,6 +15,8 @@ from pathlib import Path
 from . import audio, hotkey, inject, postprocess
 from .config import APP_NAME, Settings, data_dir, logs_dir, recordings_dir
 from .overlay import Overlay
+from .platform_support import (IS_MAC, claim_single_instance, open_folder,
+                               play_tone, show_message)
 from .transcribe import Engine
 
 log = logging.getLogger("cocowhisper")
@@ -45,28 +46,8 @@ def setup_logging() -> None:
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
-def single_instance() -> bool:
-    """False when another copy already holds the mutex."""
-    try:
-        kernel32 = ctypes.windll.kernel32
-        kernel32.CreateMutexW(None, False, "Global\\CoconutWhisperSingleton")
-        return kernel32.GetLastError() != 183  # ERROR_ALREADY_EXISTS
-    except Exception:
-        return True
-
-
 def beep(kind: str) -> None:
-    def worker() -> None:
-        try:
-            import winsound
-
-            tones = {"start": (760, 70), "stop": (560, 70), "error": (330, 180)}
-            freq, ms = tones.get(kind, (700, 60))
-            winsound.Beep(freq, ms)
-        except Exception:
-            log.debug("beep failed", exc_info=True)
-
-    threading.Thread(target=worker, daemon=True).start()
+    play_tone(kind)
 
 
 class App:
@@ -326,13 +307,18 @@ class App:
             ),
             Menu.SEPARATOR,
             MenuItem("Settings", self.open_settings, default=True),
-            MenuItem("Open log folder", lambda *_: os.startfile(logs_dir())),
+            MenuItem("Open log folder", lambda *_: open_folder(logs_dir())),
             MenuItem("Version " + VERSION, None, enabled=False),
             Menu.SEPARATOR,
             MenuItem("Quit", lambda *_: self.quit()),
         )
         self.tray = pystray.Icon("coconut_whisper", self._icon_image("busy"), APP_NAME, menu)
-        threading.Thread(target=self.tray.run, daemon=True).start()
+        if IS_MAC:
+            # macOS keeps its status bar item on the main run loop, which tkinter
+            # also owns. run_detached is the supported way to share it.
+            self.tray.run_detached()
+        else:
+            threading.Thread(target=self.tray.run, daemon=True).start()
 
     def _copy_last(self, *_args) -> None:
         if self.last_text:
@@ -364,13 +350,12 @@ class App:
 
 def main() -> None:
     setup_logging()
-    if not single_instance():
+    if not claim_single_instance():
         log.info("another instance is already running")
-        ctypes.windll.user32.MessageBoxW(
-            None,
-            APP_NAME + " is already running. Look for it in the system tray.",
+        show_message(
             APP_NAME,
-            0x40,
+            APP_NAME + " is already running. Look for the microphone icon in the "
+            "menu bar or the system tray.",
         )
         return
     log.info("starting %s %s", APP_NAME, VERSION)

@@ -6,30 +6,34 @@ import threading
 
 from pynput import keyboard
 
+from .platform_support import hotkey_choices
+
 log = logging.getLogger(__name__)
 
-HOTKEY_CHOICES = [
-    ("Right Ctrl (recommended)", "right_ctrl"),
-    ("Right Alt", "right_alt"),
-    ("Right Shift", "right_shift"),
-    ("F8", "f8"),
-    ("F9", "f9"),
-    ("Ctrl + Shift", "ctrl+shift"),
-    ("Ctrl + Space", "ctrl+space"),
-    ("Ctrl + Shift + Space", "ctrl+shift+space"),
-    ("Alt + Space", "alt+space"),
-]
+HOTKEY_CHOICES = hotkey_choices()
+
+# Built defensively: the key names pynput exposes differ between backends, and
+# a missing one must not stop the app from starting.
+_MODIFIER_NAMES = {
+    "ctrl_l": {"ctrl", "left_ctrl"},
+    "ctrl_r": {"ctrl", "right_ctrl"},
+    "alt_l": {"alt", "left_alt", "option", "left_option"},
+    "alt_r": {"alt", "right_alt", "altgr", "option", "right_option"},
+    "alt_gr": {"alt", "right_alt", "altgr"},
+    "shift_l": {"shift", "left_shift"},
+    "shift_r": {"shift", "right_shift"},
+    "cmd_l": {"cmd", "win", "left_cmd", "left_win"},
+    "cmd_r": {"cmd", "win", "right_cmd", "right_win"},
+    "cmd": {"cmd"},
+}
 
 _MODIFIER_TOKENS = {
-    keyboard.Key.ctrl_l: {"ctrl", "left_ctrl"},
-    keyboard.Key.ctrl_r: {"ctrl", "right_ctrl"},
-    keyboard.Key.alt_l: {"alt", "left_alt"},
-    keyboard.Key.alt_r: {"alt", "right_alt", "altgr"},
-    keyboard.Key.alt_gr: {"alt", "right_alt", "altgr"},
-    keyboard.Key.shift_l: {"shift", "left_shift"},
-    keyboard.Key.shift_r: {"shift", "right_shift"},
-    keyboard.Key.cmd_l: {"win", "left_win"},
-    keyboard.Key.cmd_r: {"win", "right_win"},
+    key: tokens
+    for key, tokens in (
+        (getattr(keyboard.Key, name, None), tokens)
+        for name, tokens in _MODIFIER_NAMES.items()
+    )
+    if key is not None
 }
 
 

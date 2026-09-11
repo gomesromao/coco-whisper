@@ -3,15 +3,15 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 from pathlib import Path
 
+from .platform_support import cache_root, config_root, default_hotkey
+
 APP_NAME = "Coconut Whisper"
-APP_DIR_NAME = "CoconutWhisper"
 
 DEFAULTS: dict = {
-    "hotkey": "right_ctrl",
+    "hotkey": default_hotkey(),
     "hotkey_mode": "hold",          # hold | toggle
     "language": "auto",             # auto | en | pt | tl | taglish
     "model": "auto",                # auto | tiny | base | small | medium | large-v3-turbo
@@ -31,15 +31,13 @@ DEFAULTS: dict = {
 
 
 def data_dir() -> Path:
-    base = os.environ.get("APPDATA") or str(Path.home())
-    path = Path(base) / APP_DIR_NAME
+    path = config_root()
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def models_dir() -> Path:
-    base = os.environ.get("LOCALAPPDATA") or str(Path.home())
-    path = Path(base) / APP_DIR_NAME / "models"
+    path = cache_root() / "models"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
