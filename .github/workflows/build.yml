@@ -13,6 +13,7 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -45,9 +46,15 @@ jobs:
         include:
           - runner: macos-14
             label: AppleSilicon
-          - runner: macos-13
+          # macos-13 was retired in December 2025, macos-15-intel replaces it
+          # and is the last x86_64 image Actions will offer.
+          - runner: macos-15-intel
             label: Intel
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    # An Intel build that fails or never gets a runner must not hold back the
+    # release for everyone else.
+    continue-on-error: ${{ matrix.label == 'Intel' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -105,6 +112,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -e
+          exe=artifacts/windows/CoconutWhisper.exe
+          arm=artifacts/macos-AppleSilicon/CoconutWhisper-macOS-AppleSilicon.zip
+          intel=artifacts/macos-Intel/CoconutWhisper-macOS-Intel.zip
+
+          test -f "$exe" || { echo "the Windows build is missing"; exit 1; }
+          test -f "$arm" || { echo "the Apple Silicon build is missing"; exit 1; }
+
+          # Intel ships when it is there and is skipped when it is not, so a
+          # scarce Intel runner never holds back everyone else.
+          files="$exe $arm"
+          if [ -f "$intel" ]; then
+            files="$files $intel"
+          else
+            echo "no Intel build in this run, publishing without it"
+          fi
+
           gh release create "${GITHUB_REF_NAME}" \
             --title "Coconut Whisper ${GITHUB_REF_NAME}" \
             --notes "Local dictation for the team. Hold the dictation key, speak, release.
@@ -113,6 +137,4 @@ jobs:
           Mac: download the zip that matches your Mac, unzip it, and move Coconut Whisper to Applications.
 
           The speech model downloads once on first launch, then everything runs offline." \
-            artifacts/windows/CoconutWhisper.exe \
-            artifacts/macos-AppleSilicon/CoconutWhisper-macOS-AppleSilicon.zip \
-            artifacts/macos-Intel/CoconutWhisper-macOS-Intel.zip
+            $files
