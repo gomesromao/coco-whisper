@@ -128,7 +128,10 @@ class Engine:
                 progress(f"Loading {model_id} on {dev.upper()}...")
             from faster_whisper import WhisperModel
 
-            threads = max(4, min(8, (os.cpu_count() or 4)))
+            # Half the cores, capped. Running every core flat out makes some
+            # machines whine through the speakers, and the seconds saved are
+            # not worth that on a dictation of a few sentences.
+            threads = max(2, min(6, (os.cpu_count() or 4) // 2))
             model_obj = WhisperModel(
                 model_id,
                 device=dev,

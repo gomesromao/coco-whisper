@@ -41,6 +41,10 @@ main{padding:18px 0 56px}
 .step img{display:block;max-width:100%;border:1px solid var(--border);
           border-radius:10px;margin:14px 0 4px}
 .step img.narrow{max-width:330px}
+.step img.strip{max-width:280px}
+.icon-badge{display:flex;align-items:center;gap:14px;margin:12px 0 2px}
+.icon-badge img{width:52px;height:52px;border:none;border-radius:13px;margin:0}
+.icon-badge span{font-size:14.5px;color:var(--fg-3)}
 .caption{font-size:13px;color:var(--fg-3);margin:0 0 4px}
 
 kbd{font-family:var(--mono);font-size:13px;background:var(--bg-soft);
