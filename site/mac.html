@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Using Coconut Whisper on a Mac</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap brand-row">
+    <a class="brand" href="/"><img src="icon.png" alt=""><span>Coconut Whisper</span></a>
+    <a class="back" href="/">Back to download</a>
+  </div>
+</header>
+
+<div class="wrap title">
+  <h1>Using it on a Mac</h1>
+  <p>Seven steps. The first two are the ones macOS makes you do for any app that did not come from the App Store.</p>
+</div>
+
+<main class="wrap">
+
+  <div class="step">
+    <div class="step-head"><div class="num">1</div><h2>Pick the right file, then unzip it</h2></div>
+    <p>Apple menu, <b>About This Mac</b>. If the chip line says Apple M1, M2, M3 or newer, take the Apple Silicon download. If it says Intel, take the Intel one. The wrong one simply will not open.</p>
+    <p>Unzip, then drag <b>Coconut Whisper</b> into your Applications folder.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">2</div><h2>Open it the first time with a right click</h2></div>
+    <p>Right click the app and choose <b>Open</b>, then confirm in the box that appears. A normal double click gets refused the first time, because the app is not notarised with Apple.</p>
+    <p>If macOS still blocks it, go to <b>System Settings</b>, <b>Privacy and Security</b>, scroll down, and click <b>Open Anyway</b>.</p>
+    <div class="note">Stuck on a message saying the app is damaged? Open Terminal and paste this, then try again:<br>
+      <code>xattr -dr com.apple.quarantine "/Applications/Coconut Whisper.app"</code></div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">3</div><h2>Give it the two permissions it needs</h2></div>
+    <p><b>Microphone</b>, so it can hear you. macOS asks the first time you dictate, just say yes.</p>
+    <p><b>Accessibility</b>, so it can notice the dictation key and paste the text for you. macOS does not always ask, so set it yourself: <b>System Settings</b>, <b>Privacy and Security</b>, <b>Accessibility</b>, then switch <b>Coconut Whisper</b> on.</p>
+    <div class="note"><b>This is the one that catches people out.</b> Without Accessibility the app runs, the icon is there, and the key does nothing at all.</div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">4</div><h2>Find the microphone icon in the menu bar</h2></div>
+    <p>The app has no window and no dock icon. It lives at the top right of your screen, in the row with the clock, wifi and battery.</p>
+    <div class="menu">
+      <div>top right of the screen</div>
+      <div>&#127908; &nbsp; Coconut Whisper sits here, near the clock</div>
+    </div>
+    <p>If your menu bar is crowded, the icon can be hidden behind the notch on some MacBooks. Holding Command and dragging menu bar icons rearranges them.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">5</div><h2>Click where you want to write, then hold the key</h2></div>
+    <p>Click into the message box first, in Slack, Gmail, the ATS, anywhere. Then hold <kbd>Right Command</kbd> and talk.</p>
+    <img src="img/win-listening.png" alt="A small dark pill reading Listening" class="narrow">
+    <p class="caption">This pill appears at the bottom of the screen while it hears you. Captured on Windows, it is the same pill on a Mac.</p>
+    <p>Let go when you finish. A second or two later the text appears where the cursor was.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">6</div><h2>The menu</h2></div>
+    <p>Click the microphone icon in the menu bar.</p>
+    <div class="menu">
+      <div>Hold Right Command to dictate</div>
+      <div><b>Language</b> &nbsp;English, Portuguese, Tagalog, Taglish</div>
+      <div><b>Copy last transcript</b></div>
+      <div><b>Settings</b></div>
+      <div><b>Open log folder</b></div>
+      <div><b>Quit</b></div>
+    </div>
+    <p>Switching language takes effect immediately, no restart.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">7</div><h2>Settings, if you want to change the key</h2></div>
+    <p>Open Settings from that menu. The keys you can choose from on a Mac:</p>
+    <div class="keys">
+      <kbd>Right Command</kbd><kbd>Right Option</kbd><kbd>Right Control</kbd>
+      <kbd>Right Shift</kbd><kbd>F9</kbd><kbd>Control + Shift</kbd>
+      <kbd>Control + Space</kbd><kbd>Option + Space</kbd>
+    </div>
+    <p><b>Mode</b> swaps holding the key for pressing once to start and once to stop, which is easier for long dictation.</p>
+    <p><b>Sound volume</b> sets how loud the start and stop tones are. It starts quiet, and the Test button plays it at the level you picked.</p>
+    <p><b>Word replacements</b> is for words it always gets wrong. One per line, written as <code>spoken = written</code>.</p>
+    <img src="img/win-settings.png" alt="The Coconut Whisper settings window">
+    <p class="caption">The settings window, captured on Windows. The Mac one has the same rows in the same order, drawn with Mac controls.</p>
+  </div>
+
+</main>
+
+<div class="trouble">
+  <div class="wrap">
+    <h2>When something is off</h2>
+    <details>
+      <summary>I hold the key and nothing happens</summary>
+      <p>Nine times out of ten this is the Accessibility permission from step three. Check System Settings, Privacy and Security, Accessibility, and make sure Coconut Whisper is switched on. If you had it on already, switch it off and on again after updating the app.</p>
+    </details>
+    <details>
+      <summary>Right Command does nothing but another key works</summary>
+      <p>Tell the team, that is worth knowing. In the meantime pick a different key in Settings, Control plus Shift is a good second choice.</p>
+    </details>
+    <details>
+      <summary>macOS says the app is damaged and cannot be opened</summary>
+      <p>That is Gatekeeper, not a corrupted download. Use the Terminal command in step two, then open it with a right click.</p>
+    </details>
+    <details>
+      <summary>It heard nothing</summary>
+      <p>Open Settings and choose your microphone by name instead of leaving it on system default. Also check System Settings, Privacy and Security, Microphone.</p>
+    </details>
+    <details>
+      <summary>It is slow</summary>
+      <p>Open Settings and pick a smaller model. Apple Silicon handles the larger ones comfortably, an older Intel Mac should stay on Small.</p>
+    </details>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    On Windows instead? <a href="/windows.html">Read the Windows guide</a>. This app is newer on the Mac than on Windows, so tell the team anything that looks wrong.
+  </div>
+</footer>
+
+</body>
+</html>

@@ -8,7 +8,7 @@ from tkinter import ttk
 from . import audio
 from .config import APP_NAME, data_dir
 from .hotkey import HOTKEY_CHOICES
-from .platform_support import (IS_MAC, open_folder, set_startup,
+from .platform_support import (IS_MAC, open_folder, play_tone, set_startup,
                                startup_enabled)
 from .transcribe import LANGUAGES, MODEL_CATALOG, cuda_available
 
@@ -189,6 +189,28 @@ class SettingsWindow(tk.Toplevel):
         self._check(card, "trailing_space", "Add a space at the end")
         self._check(card, "remove_fillers", "Remove filler sounds such as um and uh")
         self._check(card, "sounds", "Play a sound when recording starts and stops")
+
+        volume = tk.Frame(card, bg="#FFFFFF")
+        initial = float(self.settings.get("sound_volume") or 20)
+        # DoubleVar, and the callback only writes to the label. Writing back to
+        # the variable from here fights the widget while it is being laid out.
+        self._volume_var = tk.DoubleVar(value=initial)
+        readout = ttk.Label(volume, text=str(int(initial)) + "%",
+                            style="Card.TLabel", width=5)
+        scale = ttk.Scale(
+            volume, from_=0, to=100, orient="horizontal",
+            variable=self._volume_var,
+            command=lambda v: readout.configure(text=str(int(float(v))) + "%"),
+        )
+        scale.pack(side="left", fill="x", expand=True)
+        readout.pack(side="left", padx=(10, 0))
+        ttk.Button(volume, text="Test", style="Ghost.TButton",
+                   command=self._test_sound).pack(side="left", padx=(8, 0))
+        # The scale settles its geometry after the first idle pass, so the
+        # stored value is applied once that is done.
+        self.after_idle(lambda: (self._volume_var.set(initial),
+                                 readout.configure(text=str(int(initial)) + "%")))
+        self._row(card, "Sound volume", volume)
         self._check(card, "show_overlay", "Show the on-screen status pill")
 
         self._full(card, ttk.Label(
@@ -237,6 +259,11 @@ class SettingsWindow(tk.Toplevel):
 
     # ---------- actions ----------
 
+    def _test_sound(self) -> None:
+        """Plays the stop tone at the level the slider is showing."""
+        play_tone("stop", int(round(float(self._volume_var.get()))))
+
+
     def _save(self) -> None:
         values = {key: var.get() for key, var in self._vars.items()}
 
@@ -262,6 +289,7 @@ class SettingsWindow(tk.Toplevel):
             index = self._model_values.index(chosen_model) - 1
             values["model"] = MODEL_CATALOG[index][1]
 
+        values["sound_volume"] = int(round(float(self._volume_var.get())))
         values["dictionary"] = _parse_dictionary(self._dict_text.get("1.0", "end"))
 
         launch = values.pop("launch_at_startup", False)

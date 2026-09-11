@@ -21,7 +21,7 @@ from .transcribe import Engine
 
 log = logging.getLogger("cocowhisper")
 
-VERSION = "0.1.0"
+VERSION = "0.1.2"
 
 
 def resource_path(*parts: str) -> Path:
@@ -44,10 +44,6 @@ def setup_logging() -> None:
         root.addHandler(logging.StreamHandler())
     for noisy in ("httpx", "httpcore", "huggingface_hub", "urllib3", "filelock"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
-
-
-def beep(kind: str) -> None:
-    play_tone(kind)
 
 
 class App:
@@ -97,12 +93,16 @@ class App:
             self.tray.stop()
         self.root.after(0, self.root.destroy)
 
+    def beep(self, kind: str) -> None:
+        if self.settings.get("sounds"):
+            play_tone(kind, self.settings.get("sound_volume"))
+
     # ---------- dictation ----------
 
     def start_dictation(self) -> None:
         if self.state in {"loading", "starting"}:
             self.notify(APP_NAME, "Still loading the model, one moment.")
-            beep("error")
+            self.beep("error")
             return
         if self.state == "working" or self.recorder.is_recording:
             return
@@ -111,11 +111,10 @@ class App:
         except audio.RecordingError as exc:
             log.error("microphone unavailable: %s", exc)
             self.notify("Microphone unavailable", "Check your input device in Settings.")
-            beep("error")
+            self.beep("error")
             return
         self.set_state("recording")
-        if self.settings.get("sounds"):
-            beep("start")
+        self.beep("start")
         if self.settings.get("show_overlay"):
             self.overlay.show("listening")
         self._arm_auto_stop()
@@ -125,8 +124,7 @@ class App:
         if not self.recorder.is_recording:
             return
         buffer, peak = self.recorder.stop()
-        if self.settings.get("sounds"):
-            beep("stop")
+        self.beep("stop")
         seconds = buffer.size / audio.SAMPLE_RATE
         if seconds < audio.MIN_SECONDS:
             self.overlay.hide()
@@ -159,7 +157,7 @@ class App:
                 self.overlay.hide()
                 self.set_state("error")
                 self.notify("Transcription failed", str(exc)[:180])
-                beep("error")
+                self.beep("error")
                 return
 
             text = postprocess.clean(

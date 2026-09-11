@@ -105,6 +105,15 @@
   .req b{display:block;font-size:13px;color:var(--fg-3);font-weight:600;margin-bottom:4px}
   .req span{font-size:15px;font-weight:700}
 
+  .guide-card{display:block;background:#fff;border:1px solid var(--border);
+              border-left:4px solid var(--green-600);border-radius:14px;padding:22px 24px;
+              text-decoration:none;transition:border-color .15s ease,transform .15s ease}
+  .guide-card:hover{transform:translateY(-2px);border-color:var(--green-600)}
+  .guide-card.mac{border-left-color:var(--sky)}
+  .guide-card.mac:hover{border-color:var(--sky)}
+  .guide-card b{display:block;font-size:17px;color:var(--fg-1);margin-bottom:4px}
+  .guide-card span{font-size:14.5px;color:var(--fg-3)}
+
   footer{background:var(--navy-900);color:var(--fg-inv-2);padding:34px 0;font-size:14px}
   footer strong{color:#fff}
 
@@ -142,7 +151,7 @@
       </a>
     </div>
     <div class="meta">
-      Version <b>0.1.0</b> &nbsp;·&nbsp; Windows 10 and 11, macOS 12 and later &nbsp;·&nbsp;
+      Version <b>0.1.2</b> &nbsp;·&nbsp; Windows 10 and 11, macOS 12 and later &nbsp;·&nbsp;
       <a id="other-mac" href="https://github.com/gomesromao/coco-whisper/releases/latest/download/CoconutWhisper-macOS-Intel.zip">Intel Mac version</a>
     </div>
   </div>
@@ -266,6 +275,23 @@
         <summary>It wrote a word wrong every time</summary>
         <p>Open Settings and add it under word replacements, one per line, as spoken = written. Useful for client names and internal shorthand.</p>
       </details>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Step by step, with pictures</h2>
+    <p class="sub">Where to find the icon, how to change the key, and what to do when it misbehaves.</p>
+    <div class="cols">
+      <a class="guide-card" href="/windows.html">
+        <b>See how to use it on Windows</b>
+        <span>Find the icon near the clock, hold Right Ctrl, change the key</span>
+      </a>
+      <a class="guide-card mac" href="/mac.html">
+        <b>See how to use it on a Mac</b>
+        <span>Open it past Gatekeeper, grant Accessibility, hold Right Command</span>
+      </a>
     </div>
   </div>
 </section>

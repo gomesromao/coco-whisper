@@ -1,5 +1,8 @@
 """Opens the settings window on its own so the layout can be inspected."""
+import sys
 import tkinter as tk
+
+sys.path.insert(0, ".")
 from app.config import Settings
 from app.ui import SettingsWindow
 

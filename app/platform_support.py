@@ -51,30 +51,43 @@ def open_folder(path) -> None:
 
 # ---------- sound ----------
 
-TONES = {"start": (760, 0.07), "stop": (560, 0.07), "error": (330, 0.18)}
+# frequency, seconds, amplitude at full volume. Sine waves on purpose:
+# winsound.Beep emits a square wave, which reads as something faulting rather
+# than as a notification. The amplitudes were set by recording the tones back
+# through the microphone and comparing them against that old beep.
+TONES = {
+    "start": (760, 0.07, 0.34),
+    "stop": (520, 0.09, 0.26),
+    "error": (330, 0.18, 0.40),
+}
+TONE_RATE = 44100
+# The output device takes longer to open than a 90 ms tone lasts, so without a
+# tail of silence the stream closes before a single sample is heard.
+TONE_TAIL = 0.25
 
 
-def play_tone(kind: str) -> None:
-    freq, seconds = TONES.get(kind, (700, 0.06))
+def play_tone(kind: str, volume: int = 20) -> None:
+    """volume is a percentage, 0 silences the tone entirely."""
+    volume = max(0, min(100, int(volume)))
+    if volume == 0:
+        return
+    freq, seconds, full = TONES.get(kind, (700, 0.06, 0.25))
+    amplitude = full * (volume / 100.0)
 
     def worker() -> None:
         try:
-            if IS_WINDOWS:
-                import winsound
-
-                winsound.Beep(int(freq), int(seconds * 1000))
-                return
             import numpy as np
             import sounddevice as sd
 
-            rate = 44100
-            t = np.linspace(0, seconds, int(rate * seconds), endpoint=False)
-            wave = (0.18 * np.sin(2 * np.pi * freq * t)).astype("float32")
-            # short fade so the tone does not click
-            fade = max(1, int(rate * 0.008))
-            wave[:fade] *= np.linspace(0, 1, fade)
-            wave[-fade:] *= np.linspace(1, 0, fade)
-            sd.play(wave, rate, blocking=True)
+            t = np.linspace(0, seconds, int(TONE_RATE * seconds), endpoint=False)
+            wave = (amplitude * np.sin(2 * np.pi * freq * t)).astype("float32")
+            # a fifth of the tone fades in and out, which removes the click at
+            # both ends and is what makes it read as soft rather than harsh
+            fade = max(1, int(len(wave) * 0.2))
+            wave[:fade] *= np.linspace(0, 1, fade, dtype="float32")
+            wave[-fade:] *= np.linspace(1, 0, fade, dtype="float32")
+            tail = np.zeros(int(TONE_RATE * TONE_TAIL), dtype="float32")
+            sd.play(np.concatenate([wave, tail]), TONE_RATE, blocking=True)
         except Exception:
             log.debug("tone failed", exc_info=True)
 

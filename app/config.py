@@ -22,6 +22,7 @@ DEFAULTS: dict = {
     "capitalize_first": True,
     "remove_fillers": True,
     "sounds": True,
+    "sound_volume": 20,       # percent of the loudest the tone can be
     "show_overlay": True,
     "launch_at_startup": False,
     "max_seconds": 180,

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Using Coconut Whisper on Windows</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap brand-row">
+    <a class="brand" href="/"><img src="icon.png" alt=""><span>Coconut Whisper</span></a>
+    <a class="back" href="/">Back to download</a>
+  </div>
+</header>
+
+<div class="wrap title">
+  <h1>Using it on Windows</h1>
+  <p>Six short steps. Nothing here needs an admin password.</p>
+</div>
+
+<main class="wrap">
+
+  <div class="step">
+    <div class="step-head"><div class="num">1</div><h2>Run the file you downloaded</h2></div>
+    <p>It is a single file, <code>CoconutWhisper.exe</code>. There is no installer, so just double click it.</p>
+    <p>Windows will probably say it cannot verify the publisher. Click <b>More info</b>, then <b>Run anyway</b>. That warning appears for any program without a paid certificate.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">2</div><h2>Find the microphone icon</h2></div>
+    <p>The app has no window. It sits near the clock, at the bottom right of your screen.</p>
+    <img src="img/win-tray-icon.png" alt="The Coconut Whisper microphone icon near the Windows clock">
+    <p class="caption">This is the icon you are looking for.</p>
+    <div class="note"><b>Do not see it?</b> Windows hides new icons. Click the small arrow <b>^</b> next to the clock to show the hidden ones, then drag the microphone out so it stays visible.</div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">3</div><h2>Wait for it to be ready</h2></div>
+    <p>The first launch downloads the speech model, which takes a few minutes on a normal connection. It only happens once, and after that the app works offline.</p>
+    <p>Hover the icon to see what it is doing. While it says loading, the key will not work yet.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">4</div><h2>Click where you want to write, then hold the key</h2></div>
+    <p>Click into the message box first, in Slack, Gmail, the ATS, anywhere. Then hold <kbd>Right Ctrl</kbd> and talk.</p>
+    <img src="img/win-listening.png" alt="A small dark pill reading Listening" class="narrow">
+    <p class="caption">This pill appears at the bottom of the screen while it hears you.</p>
+    <p>Let go of the key when you finish. A second or two later your text appears where the cursor was, punctuation included.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">5</div><h2>The menu</h2></div>
+    <p>Right click the microphone icon to open it.</p>
+    <div class="menu">
+      <div>Hold Right Ctrl to dictate</div>
+      <div><b>Language</b> &nbsp;English, Portuguese, Tagalog, Taglish</div>
+      <div><b>Copy last transcript</b></div>
+      <div><b>Settings</b></div>
+      <div><b>Open log folder</b></div>
+      <div><b>Quit</b></div>
+    </div>
+    <p class="caption">The first line is not clickable, it just tells you the current state.</p>
+    <p>Switching language takes effect immediately, no restart. Leave it on auto detect if you move between English and Portuguese during the day.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">6</div><h2>Settings, if you want to change the key</h2></div>
+    <p>Right click the icon and choose Settings.</p>
+    <img src="img/win-settings.png" alt="The Coconut Whisper settings window">
+    <p>The keys you can choose from:</p>
+    <div class="keys">
+      <kbd>Right Ctrl</kbd><kbd>Right Alt</kbd><kbd>Right Shift</kbd><kbd>F8</kbd>
+      <kbd>F9</kbd><kbd>Ctrl + Shift</kbd><kbd>Ctrl + Space</kbd>
+      <kbd>Ctrl + Shift + Space</kbd><kbd>Alt + Space</kbd>
+    </div>
+    <p>Under <b>Mode</b> you can swap holding the key for pressing it once to start and once to stop, which is easier for long dictation.</p>
+    <p><b>Sound volume</b> sets how loud the start and stop tones are. It starts quiet, and the Test button plays it so you can find your level.</p>
+    <p><b>Word replacements</b> is for words it always gets wrong. One per line, written as <code>spoken = written</code>, useful for client names and internal shorthand.</p>
+  </div>
+
+</main>
+
+<div class="trouble">
+  <div class="wrap">
+    <h2>When something is off</h2>
+    <details>
+      <summary>I hold the key and nothing happens</summary>
+      <p>Check the icon first, it tells you the state when you hover it. If it says loading, wait. If it says ready, make sure you clicked into a text box before holding the key, and that you are holding the key you actually set.</p>
+    </details>
+    <details>
+      <summary>The text went somewhere else</summary>
+      <p>It always lands where the cursor is. If you clicked another window while dictating, that is where it goes.</p>
+    </details>
+    <details>
+      <summary>It is taking too long to write</summary>
+      <p>Open Settings and pick a smaller model. Small is a good balance, Base is faster and less accurate. The app chooses for you the first time, based on your computer.</p>
+    </details>
+    <details>
+      <summary>It heard nothing</summary>
+      <p>Open Settings and pick your microphone by name under Microphone instead of leaving it on system default. Headsets often are not the default.</p>
+    </details>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    On a Mac instead? <a href="/mac.html">Read the Mac guide</a>. Something still broken? Tell the team what you said and what it wrote.
+  </div>
+</footer>
+
+</body>
+</html>

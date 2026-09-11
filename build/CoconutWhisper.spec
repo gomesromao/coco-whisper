@@ -81,12 +81,12 @@ if IS_MAC:
         name="Coconut Whisper.app",
         icon=icon,
         bundle_identifier="com.coconutva.whisper",
-        version="0.1.0",
+        version="0.1.2",
         info_plist={
             "CFBundleName": "Coconut Whisper",
             "CFBundleDisplayName": "Coconut Whisper",
-            "CFBundleShortVersionString": "0.1.0",
-            "CFBundleVersion": "0.1.0",
+            "CFBundleShortVersionString": "0.1.2",
+            "CFBundleVersion": "0.1.2",
             # menu bar app, no icon in the dock
             "LSUIElement": True,
             "LSMinimumSystemVersion": "12.0",
