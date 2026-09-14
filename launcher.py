@@ -30,6 +30,13 @@ if __name__ == "__main__":
     multiprocessing.freeze_support()
     if "--selftest" in sys.argv:
         raise SystemExit(selftest())
+    if "--runtime-test" in sys.argv:
+        # Goes further than the imports above: starts the listener, the menu
+        # bar item and the windows, and drives them from worker threads, which
+        # is where every macOS crash so far has happened.
+        from app.selftest import run
+
+        raise SystemExit(run())
     if "--version" in sys.argv:
         from app.main import VERSION
 

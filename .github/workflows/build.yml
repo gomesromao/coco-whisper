@@ -34,6 +34,9 @@ jobs:
         run: |
           ls -lh dist/CoconutWhisper.exe
           ./dist/CoconutWhisper.exe --selftest
+      - name: Run the packaged app for real
+        shell: bash
+        run: ./dist/CoconutWhisper.exe --runtime-test
       - uses: actions/upload-artifact@v4
         with:
           name: windows
@@ -87,6 +90,14 @@ jobs:
         run: |
           test -d "dist/Coconut Whisper.app"
           "dist/Coconut Whisper.app/Contents/MacOS/CoconutWhisper" --selftest
+      - name: Run the packaged app for real
+        # The imports above only prove the bundle is complete. This starts the
+        # hotkey listener, the menu bar item and the windows, and drives them
+        # from worker threads. Every Mac crash the team has hit came from that
+        # and none of them raised anything, so the check is whether the process
+        # is still alive at the end. Accessibility cannot be granted on a
+        # runner, so the path after a permission is allowed stays uncovered.
+        run: '"dist/Coconut Whisper.app/Contents/MacOS/CoconutWhisper" --runtime-test'
       - name: Zip the app
         run: |
           cd dist
