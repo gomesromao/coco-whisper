@@ -134,7 +134,9 @@ jobs:
             --notes "Local dictation for the team. Hold the dictation key, speak, release.
 
           Windows: download CoconutWhisper.exe and run it.
-          Mac: download the zip that matches your Mac, unzip it, and move Coconut Whisper to Applications.
+          Mac: download the zip that matches your Mac, unzip it, and move Coconut Whisper into Applications before opening it. Opened from anywhere else, macOS gives it a new temporary location on every launch and the Accessibility permission never sticks.
+
+          Updating on a Mac: in System Settings, Privacy and Security, Accessibility, remove the old Coconut Whisper entry with the minus button before opening the new version. Every version is a different app to macOS, so the old entry keeps the switch looking on while the app is still refused.
 
           The speech model downloads once on first launch, then everything runs offline." \
             $files

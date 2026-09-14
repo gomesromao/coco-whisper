@@ -8,9 +8,12 @@ from tkinter import ttk
 from . import audio
 from .config import APP_NAME, data_dir
 from .hotkey import HOTKEY_CHOICES
-from .platform_support import (IS_MAC, input_monitoring_ready, open_folder,
-                               open_accessibility_settings, play_tone,
-                               set_startup, startup_enabled)
+from .platform_support import (IS_MAC, input_monitoring_ready,
+                               installed_properly, is_translocated,
+                               open_accessibility_settings,
+                               open_applications_folder, open_folder,
+                               play_tone, request_accessibility, set_startup,
+                               startup_enabled)
 from .transcribe import LANGUAGES, MODEL_CATALOG, cuda_available
 
 log = logging.getLogger(__name__)
@@ -24,6 +27,9 @@ FG = "#07152B"
 FG_MUTED = "#5C6B85"
 BORDER = "#E6E8EE"
 CONTENT_WIDTH = 520
+# The permission window watches for the grant instead of asking the user to
+# come back and click something.
+PERMISSION_POLL_MS = 1000
 
 
 def _configure_styles(widget) -> None:
@@ -380,6 +386,8 @@ class PermissionWindow(tk.Toplevel):
         super().__init__(root)
         PermissionWindow._open = self
         self.app = app
+        self._poll_id = None
+        self._done = False
 
         self.title(APP_NAME + " needs permission")
         self.configure(bg=BG)
@@ -389,6 +397,11 @@ class PermissionWindow(tk.Toplevel):
         self._center()
         self.lift()
         self.focus_force()
+        self._poll()
+
+    def _misplaced(self) -> bool:
+        """True when where the app sits is the reason a grant will not hold."""
+        return is_translocated() or not installed_properly()
 
     def _build(self) -> None:
         _configure_styles(self)
@@ -402,14 +415,30 @@ class PermissionWindow(tk.Toplevel):
         body = tk.Frame(self, bg=BG, padx=20, pady=16)
         body.pack(fill="both", expand=True)
 
-        steps = chr(10).join((
-            "1.  Open System Settings, Privacy and Security, Accessibility.",
-            "2.  Find Coconut Whisper in the list and switch it on.",
-            "3.  Come back here and click Check again.",
-        ))
-        tk.Label(body, text="Coconut Whisper watches for the dictation key, and "
-                            "macOS calls that Accessibility. Until it is allowed, "
-                            "holding the key does nothing at all.",
+        if self._misplaced():
+            explain = ("Coconut Whisper is running from the folder it was "
+                       "unzipped into. macOS hands an app opened from there a "
+                       "fresh temporary location on every launch, and it files "
+                       "the permission against that location, so whatever you "
+                       "allow is gone by the next time you open it.")
+            steps = chr(10).join((
+                "1.  Quit Coconut Whisper from the menu bar.",
+                "2.  Drag Coconut Whisper into your Applications folder.",
+                "3.  Open it from there, and the permission will hold.",
+            ))
+        else:
+            explain = ("Coconut Whisper watches for the dictation key, and "
+                       "macOS calls that Accessibility. Until it is allowed, "
+                       "holding the key does nothing at all. Every new version "
+                       "counts as a different app to macOS, so an entry left "
+                       "over from the previous one has to go first.")
+            steps = chr(10).join((
+                "1.  Open System Settings, Privacy and Security, Accessibility.",
+                "2.  If Coconut Whisper is already in the list, select it and "
+                "remove it with the minus button.",
+                "3.  Come back here and click Ask macOS.",
+            ))
+        tk.Label(body, text=explain,
                  bg=BG, fg=FG, font=("Segoe UI", 10), wraplength=440,
                  justify="left").pack(anchor="w")
         tk.Label(body, text=steps, bg="#FFFFFF", fg=FG, font=("Segoe UI", 10),
@@ -422,10 +451,15 @@ class PermissionWindow(tk.Toplevel):
 
         footer = tk.Frame(self, bg=BG, padx=20, pady=14)
         footer.pack(fill="x")
-        ttk.Button(footer, text="Open System Settings", style="Accent.TButton",
-                   command=self._open_settings).pack(side="right")
-        ttk.Button(footer, text="Check again", style="Ghost.TButton",
-                   command=self._recheck).pack(side="right", padx=(0, 8))
+        if self._misplaced():
+            ttk.Button(footer, text="Open Applications folder",
+                       style="Accent.TButton",
+                       command=open_applications_folder).pack(side="right")
+        else:
+            ttk.Button(footer, text="Ask macOS", style="Accent.TButton",
+                       command=self._request).pack(side="right")
+            ttk.Button(footer, text="Open System Settings", style="Ghost.TButton",
+                       command=self._open_settings).pack(side="right", padx=(0, 8))
         ttk.Button(footer, text="Later", style="Ghost.TButton",
                    command=self._close).pack(side="left")
 
@@ -435,12 +469,36 @@ class PermissionWindow(tk.Toplevel):
             text="System Settings is open. Switch Coconut Whisper on, then come "
                  "back and click Check again.")
 
-    def _recheck(self) -> None:
-        if not input_monitoring_ready():
-            self._status.configure(
-                text="Still not allowed. Make sure the switch next to Coconut "
-                     "Whisper is on, not just the row selected.")
+    def _request(self) -> None:
+        """Asks macOS to list us, which is the step people cannot find."""
+        if request_accessibility():
+            self._granted()
             return
+        self._status.configure(
+            text="Not allowed yet. macOS shows its dialog once per version, "
+                 "so if nothing appeared, remove the old Coconut Whisper "
+                 "entry in Accessibility and click here again.")
+
+    def _poll(self) -> None:
+        """Watches for the grant so nobody has to come back and click.
+
+        Runs on the interface thread, the only one allowed to talk to Tk.
+        """
+        if self._done:
+            return
+        if input_monitoring_ready():
+            self._granted()
+            return
+        try:
+            self._poll_id = self.after(PERMISSION_POLL_MS, self._poll)
+        except tk.TclError:
+            self._poll_id = None
+
+    def _granted(self) -> None:
+        if self._done:
+            return
+        self._done = True
+        self._cancel_poll()
         # The tap is built when the listener starts, so it has to be rebuilt
         # now that the permission exists.
         self.app.listener.restart()
@@ -450,7 +508,17 @@ class PermissionWindow(tk.Toplevel):
                  "nothing, quit Coconut Whisper from the menu bar and open it "
                  "again.")
 
+    def _cancel_poll(self) -> None:
+        if self._poll_id is not None:
+            try:
+                self.after_cancel(self._poll_id)
+            except tk.TclError:
+                pass
+            self._poll_id = None
+
     def _close(self) -> None:
+        self._cancel_poll()
+        self._done = True
         PermissionWindow._open = None
         self.destroy()
 

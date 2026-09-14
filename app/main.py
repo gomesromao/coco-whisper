@@ -5,6 +5,7 @@ import faulthandler
 import json
 import logging
 import os
+import queue
 import sys
 import threading
 import time
@@ -23,13 +24,17 @@ from .transcribe import Engine
 
 log = logging.getLogger("cocowhisper")
 
-VERSION = "0.1.6"
+VERSION = "0.1.7"
 
 # Only the newest entries keep what was actually said. Older ones keep the
 # timing and language, which is what support questions need, and the file is
 # capped so it cannot grow forever.
 HISTORY_TEXT_ENTRIES = 20
 HISTORY_MAX_ENTRIES = 500
+
+# How often the interface loop looks for work handed over by other threads.
+# Short enough that the overlay still feels instant when the key goes down.
+PUMP_MS = 40
 
 
 def resource_path(*parts: str) -> Path:
@@ -125,6 +130,10 @@ def clear_history() -> int:
 
 class App:
     def __init__(self) -> None:
+        # Set before anything builds a window: every helper below decides what
+        # is safe to touch by comparing against this thread.
+        self._main_thread = threading.get_ident()
+        self._pending: queue.Queue = queue.Queue()
         self.settings = Settings()
         self.engine = Engine()
         self.recorder = audio.Recorder()
@@ -132,14 +141,13 @@ class App:
         self.root = tk.Tk()
         self.root.withdraw()
         self.root.title(APP_NAME)
-        self.overlay = Overlay(self.root)
+        self.overlay = Overlay(self.root, self.later)
         self.tray = None
         self.state = "starting"
         self.last_text = ""
         self._busy = threading.Lock()
         self._auto_stop: threading.Timer | None = None
         self._icons: dict = {}
-        self._main_thread = threading.get_ident()
 
     # ---------- lifecycle ----------
 
@@ -158,16 +166,37 @@ class App:
         self.later(fn)
 
     def later(self, fn) -> None:
-        """Queues fn on the interface loop, never running it inline.
+        """Hands fn to the interface loop, never running it inline.
 
-        Windows are built through here on purpose. A tray callback on macOS
-        arrives while the menu is still open and still holding the run loop,
-        which is the worst possible moment to start putting a window together.
+        Nothing here touches Tk. root.after looks thread safe and is not: a
+        call from another thread is marshalled across, and while it runs the
+        thread state Tk hands back to Python is cleared. If the menu bar item
+        reaches into AppKit during that window, AppKit turns the run loop over
+        and a pending Tk timer fires with nothing to restore, which ends the
+        process with a fatal error and no traceback. A plain queue drained by
+        _pump keeps every Tk call on the thread that owns it.
+
+        Windows are built through here on purpose too. A tray callback on
+        macOS arrives while the menu is still open and still holding the run
+        loop, which is the worst possible moment to put a window together.
         """
+        self._pending.put(fn)
+
+    def _pump(self) -> None:
+        """Runs whatever other threads handed over. Interface thread only."""
+        while True:
+            try:
+                fn = self._pending.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                fn()
+            except Exception:
+                log.exception("queued interface work failed")
         try:
-            self.root.after(0, fn)
+            self.root.after(PUMP_MS, self._pump)
         except (tk.TclError, RuntimeError):
-            log.debug("interface already gone, dropping the update", exc_info=True)
+            log.debug("interface gone, the queue stops here", exc_info=True)
 
     def run(self) -> None:
         self.listener.configure(
@@ -176,6 +205,7 @@ class App:
         self.listener.start()
         threading.Thread(target=self._preload, daemon=True).start()
         self._start_tray()
+        self._pump()
         self.root.after(400, self.check_permissions)
         self.root.mainloop()
 

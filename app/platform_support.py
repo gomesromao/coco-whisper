@@ -154,6 +154,49 @@ def hotkey_choices() -> list[tuple[str, str]]:
     ]
 
 
+# ---------- where we are installed ----------
+
+APPLICATIONS = Path("/Applications")
+
+
+def bundle_path():
+    """The .app we are running from, or None outside a frozen Mac build."""
+    if not IS_MAC or not getattr(sys, "frozen", False):
+        return None
+    for parent in Path(sys.executable).resolve().parents:
+        if parent.suffix == ".app":
+            return parent
+    return None
+
+
+def is_translocated() -> bool:
+    """True when Gatekeeper mounted us on a throwaway read only copy.
+
+    This is what happens when the app is opened straight from the folder it
+    was unzipped into. The copy gets a fresh random path on every launch, and
+    the accessibility permission is filed against a path, so nothing the user
+    allows survives to the next launch.
+    """
+    path = bundle_path()
+    return path is not None and "/AppTranslocation/" in str(path)
+
+
+def installed_properly() -> bool:
+    """True when we run from Applications, which is where the grant sticks.
+
+    Running from source counts as fine: there is nothing to install and the
+    permission belongs to the interpreter, not to us.
+    """
+    path = bundle_path()
+    if path is None:
+        return True
+    return APPLICATIONS in path.parents
+
+
+def open_applications_folder() -> None:
+    open_folder(APPLICATIONS)
+
+
 # ---------- permissions ----------
 
 # The pane that lists the apps allowed to watch the keyboard. Opening it
@@ -186,6 +229,25 @@ def open_accessibility_settings() -> None:
         subprocess.Popen(["open", ACCESSIBILITY_PANE])
     except Exception:
         log.exception("could not open the accessibility settings")
+
+
+def request_accessibility() -> bool:
+    """The same check, but letting macOS show its own permission dialog.
+
+    That dialog is what files the app under Accessibility with the hash of the
+    build actually running, which saves the user from finding it in the list by
+    hand. Returns the same answer as input_monitoring_ready.
+    """
+    if not IS_MAC:
+        return True
+    try:
+        import HIServices
+
+        options = {HIServices.kAXTrustedCheckOptionPrompt: True}
+        return bool(HIServices.AXIsProcessTrustedWithOptions(options))
+    except Exception:
+        log.debug("could not ask for the accessibility permission", exc_info=True)
+        return input_monitoring_ready()
 
 
 # ---------- start at login ----------

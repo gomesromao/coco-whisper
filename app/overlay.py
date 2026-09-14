@@ -22,8 +22,12 @@ STATES = {
 class Overlay:
     """Borderless pill near the bottom of the primary screen."""
 
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(self, root: tk.Tk, schedule) -> None:
+        # schedule hands work to the interface thread. The overlay is driven
+        # from the hotkey and transcription threads, and neither is allowed to
+        # call into Tk itself.
         self._root = root
+        self._schedule = schedule
         self._win: tk.Toplevel | None = None
         self._dot: tk.Canvas | None = None
         self._label: tk.Label | None = None
@@ -62,7 +66,7 @@ class Overlay:
 
     def show(self, state: str, detail: str | None = None) -> None:
         color, text = STATES.get(state, STATES["listening"])
-        self._root.after(0, lambda: self._apply(color, detail or text))
+        self._schedule(lambda: self._apply(color, detail or text))
 
     def _apply(self, color: str, text: str) -> None:
         win, dot, label = self._win, self._dot, self._label
@@ -81,7 +85,7 @@ class Overlay:
             log.debug("overlay update failed", exc_info=True)
 
     def hide(self) -> None:
-        self._root.after(0, self._do_hide)
+        self._schedule(self._do_hide)
 
     def _do_hide(self) -> None:
         if self._win is not None and self._visible:

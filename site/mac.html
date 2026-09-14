@@ -31,6 +31,7 @@
     <div class="step-head"><div class="num">1</div><h2>Pick the right file, then unzip it</h2></div>
     <p>Apple menu, <b>About This Mac</b>. If the chip line says Apple M1, M2, M3 or newer, take the Apple Silicon download. If it says Intel, take the Intel one. The wrong one simply will not open.</p>
     <p>Unzip, then drag <b>Coconut Whisper</b> into your Applications folder.</p>
+    <div class="note"><b>Move it before you open it.</b> An app opened straight from the folder it was unzipped into gets a fresh temporary location from macOS every single launch, and permissions are filed against a location. Allow it there and the permission is gone by the next launch, which looks exactly like the app ignoring you.</div>
   </div>
 
   <div class="step">
@@ -46,6 +47,7 @@
     <p><b>Microphone</b>, so it can hear you. macOS asks the first time you dictate, just say yes.</p>
     <p><b>Accessibility</b>, so it can notice the dictation key and paste the text for you. macOS does not always ask, so set it yourself: <b>System Settings</b>, <b>Privacy and Security</b>, <b>Accessibility</b>, then switch <b>Coconut Whisper</b> on.</p>
     <div class="note"><b>This is the one that catches people out.</b> Without Accessibility the app runs, the icon is there, and the key does nothing at all. From version 0.1.6 the app notices this at launch and opens a small window with a button that takes you straight to the right screen.</div>
+    <div class="note"><b>After every update, remove the old entry first.</b> Each new version is a different app as far as macOS is concerned, so the entry left behind by the previous one keeps the switch looking on while the app is still refused. In <b>Accessibility</b>, select <b>Coconut Whisper</b>, remove it with the minus button, then open the app and let it ask again.</div>
   </div>
 
   <div class="step">
