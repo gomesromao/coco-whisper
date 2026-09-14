@@ -96,6 +96,14 @@ class HotkeyListener:
             self._listener.stop()
             self._listener = None
 
+    def restart(self) -> None:
+        """Builds a fresh listener. On macOS the keyboard tap is only created
+        when the listener starts, so a permission granted after launch needs
+        this before any key reaches us."""
+        self.stop()
+        self.reset()
+        self.start()
+
     def _satisfied(self) -> bool:
         return bool(self._required) and self._required.issubset(self._pressed)
 

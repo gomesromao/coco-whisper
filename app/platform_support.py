@@ -154,6 +154,40 @@ def hotkey_choices() -> list[tuple[str, str]]:
     ]
 
 
+# ---------- permissions ----------
+
+# The pane that lists the apps allowed to watch the keyboard. Opening it
+# straight from the app saves the user from hunting through System Settings.
+ACCESSIBILITY_PANE = (
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+)
+
+
+def input_monitoring_ready() -> bool:
+    """False on macOS while the app is not allowed to watch the keyboard.
+
+    Without this permission pynput still starts and simply never reports a key,
+    so the app looks alive and does nothing at all. Always true elsewhere.
+    """
+    if not IS_MAC:
+        return True
+    try:
+        import HIServices
+
+        return bool(HIServices.AXIsProcessTrusted())
+    except Exception:
+        # A missing check must never be the reason someone cannot dictate.
+        log.debug("could not read the accessibility permission", exc_info=True)
+        return True
+
+
+def open_accessibility_settings() -> None:
+    try:
+        subprocess.Popen(["open", ACCESSIBILITY_PANE])
+    except Exception:
+        log.exception("could not open the accessibility settings")
+
+
 # ---------- start at login ----------
 
 LAUNCH_AGENT = Path.home() / "Library" / "LaunchAgents" / "com.coconutva.whisper.plist"

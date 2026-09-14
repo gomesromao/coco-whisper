@@ -8,8 +8,9 @@ from tkinter import ttk
 from . import audio
 from .config import APP_NAME, data_dir
 from .hotkey import HOTKEY_CHOICES
-from .platform_support import (IS_MAC, open_folder, play_tone, set_startup,
-                               startup_enabled)
+from .platform_support import (IS_MAC, input_monitoring_ready, open_folder,
+                               open_accessibility_settings, play_tone,
+                               set_startup, startup_enabled)
 from .transcribe import LANGUAGES, MODEL_CATALOG, cuda_available
 
 log = logging.getLogger(__name__)
@@ -23,6 +24,32 @@ FG = "#07152B"
 FG_MUTED = "#5C6B85"
 BORDER = "#E6E8EE"
 CONTENT_WIDTH = 520
+
+
+def _configure_styles(widget) -> None:
+    """The look shared by every window in the app."""
+    style = ttk.Style(widget)
+    try:
+        style.theme_use("clam")
+    except tk.TclError:
+        pass
+    style.configure("TFrame", background=BG)
+    style.configure("Card.TFrame", background="#FFFFFF")
+    style.configure("TLabel", background=BG, foreground=FG, font=("Segoe UI", 10))
+    style.configure("Card.TLabel", background="#FFFFFF", foreground=FG,
+                    font=("Segoe UI", 10))
+    style.configure("Muted.TLabel", background="#FFFFFF", foreground=FG_MUTED,
+                    font=("Segoe UI", 9))
+    style.configure("Section.TLabel", background=BG, foreground=FG,
+                    font=("Segoe UI", 11, "bold"))
+    style.configure("TCheckbutton", background="#FFFFFF", foreground=FG,
+                    font=("Segoe UI", 10))
+    style.configure("TCombobox", fieldbackground="#FFFFFF")
+    style.configure("Accent.TButton", background=GREEN, foreground="#FFFFFF",
+                    font=("Segoe UI", 10, "bold"), borderwidth=0, padding=(18, 8))
+    style.map("Accent.TButton", background=[("active", "#3F9A6E")])
+    style.configure("Ghost.TButton", background=BG, foreground=FG,
+                    font=("Segoe UI", 10), borderwidth=1, padding=(14, 8))
 
 
 class SettingsWindow(tk.Toplevel):
@@ -45,10 +72,11 @@ class SettingsWindow(tk.Toplevel):
         self.configure(bg=BG)
         self.resizable(False, False)
         self.protocol("WM_DELETE_WINDOW", self._close)
-        try:
-            self.iconbitmap(str(_icon_path()))
-        except Exception:
-            log.debug("window icon unavailable", exc_info=True)
+        if not IS_MAC:
+            try:
+                self.iconbitmap(str(_icon_path()))
+            except Exception:
+                log.debug("window icon unavailable", exc_info=True)
 
         self._devices = audio.list_input_devices()
         self._build()
@@ -59,28 +87,7 @@ class SettingsWindow(tk.Toplevel):
     # ---------- layout ----------
 
     def _build(self) -> None:
-        style = ttk.Style(self)
-        try:
-            style.theme_use("clam")
-        except tk.TclError:
-            pass
-        style.configure("TFrame", background=BG)
-        style.configure("Card.TFrame", background="#FFFFFF")
-        style.configure("TLabel", background=BG, foreground=FG, font=("Segoe UI", 10))
-        style.configure("Card.TLabel", background="#FFFFFF", foreground=FG,
-                        font=("Segoe UI", 10))
-        style.configure("Muted.TLabel", background="#FFFFFF", foreground=FG_MUTED,
-                        font=("Segoe UI", 9))
-        style.configure("Section.TLabel", background=BG, foreground=FG,
-                        font=("Segoe UI", 11, "bold"))
-        style.configure("TCheckbutton", background="#FFFFFF", foreground=FG,
-                        font=("Segoe UI", 10))
-        style.configure("TCombobox", fieldbackground="#FFFFFF")
-        style.configure("Accent.TButton", background=GREEN, foreground="#FFFFFF",
-                        font=("Segoe UI", 10, "bold"), borderwidth=0, padding=(18, 8))
-        style.map("Accent.TButton", background=[("active", "#3F9A6E")])
-        style.configure("Ghost.TButton", background=BG, foreground=FG,
-                        font=("Segoe UI", 10), borderwidth=1, padding=(14, 8))
+        _configure_styles(self)
 
         header = tk.Frame(self, bg=NAVY, padx=20, pady=12)
         header.pack(fill="x")
@@ -350,6 +357,109 @@ class SettingsWindow(tk.Toplevel):
         x = max(0, int(sw / 2 - w / 2))
         y = max(0, min(int(sh / 2 - h / 2), sh - h - 60))
         self.geometry("+" + str(x) + "+" + str(y))
+
+
+class PermissionWindow(tk.Toplevel):
+    """Asks for the macOS permission the dictation key depends on.
+
+    Without it pynput starts, listens, and never hears a thing, so the app
+    looks perfectly healthy while doing nothing. This is the only screen that
+    explains why.
+    """
+
+    _open: "PermissionWindow | None" = None
+
+    def __init__(self, root: tk.Tk, app) -> None:
+        if PermissionWindow._open is not None:
+            try:
+                PermissionWindow._open.lift()
+                PermissionWindow._open.focus_force()
+                return
+            except tk.TclError:
+                PermissionWindow._open = None
+        super().__init__(root)
+        PermissionWindow._open = self
+        self.app = app
+
+        self.title(APP_NAME + " needs permission")
+        self.configure(bg=BG)
+        self.resizable(False, False)
+        self.protocol("WM_DELETE_WINDOW", self._close)
+        self._build()
+        self._center()
+        self.lift()
+        self.focus_force()
+
+    def _build(self) -> None:
+        _configure_styles(self)
+        header = tk.Frame(self, bg=NAVY, padx=20, pady=12)
+        header.pack(fill="x")
+        tk.Label(header, text="One permission to go", bg=NAVY, fg="#FFFFFF",
+                 font=("Segoe UI", 15, "bold")).pack(anchor="w")
+        tk.Label(header, text="macOS keeps the keyboard private until you say otherwise.",
+                 bg=NAVY, fg="#C8D2E2", font=("Segoe UI", 9)).pack(anchor="w")
+
+        body = tk.Frame(self, bg=BG, padx=20, pady=16)
+        body.pack(fill="both", expand=True)
+
+        steps = chr(10).join((
+            "1.  Open System Settings, Privacy and Security, Accessibility.",
+            "2.  Find Coconut Whisper in the list and switch it on.",
+            "3.  Come back here and click Check again.",
+        ))
+        tk.Label(body, text="Coconut Whisper watches for the dictation key, and "
+                            "macOS calls that Accessibility. Until it is allowed, "
+                            "holding the key does nothing at all.",
+                 bg=BG, fg=FG, font=("Segoe UI", 10), wraplength=440,
+                 justify="left").pack(anchor="w")
+        tk.Label(body, text=steps, bg="#FFFFFF", fg=FG, font=("Segoe UI", 10),
+                 justify="left", padx=14, pady=12).pack(fill="x", pady=(12, 4))
+
+        self._status = tk.Label(body, text="", bg=BG, fg=FG_MUTED,
+                                font=("Segoe UI", 9), wraplength=440,
+                                justify="left")
+        self._status.pack(anchor="w", pady=(6, 0))
+
+        footer = tk.Frame(self, bg=BG, padx=20, pady=14)
+        footer.pack(fill="x")
+        ttk.Button(footer, text="Open System Settings", style="Accent.TButton",
+                   command=self._open_settings).pack(side="right")
+        ttk.Button(footer, text="Check again", style="Ghost.TButton",
+                   command=self._recheck).pack(side="right", padx=(0, 8))
+        ttk.Button(footer, text="Later", style="Ghost.TButton",
+                   command=self._close).pack(side="left")
+
+    def _open_settings(self) -> None:
+        open_accessibility_settings()
+        self._status.configure(
+            text="System Settings is open. Switch Coconut Whisper on, then come "
+                 "back and click Check again.")
+
+    def _recheck(self) -> None:
+        if not input_monitoring_ready():
+            self._status.configure(
+                text="Still not allowed. Make sure the switch next to Coconut "
+                     "Whisper is on, not just the row selected.")
+            return
+        # The tap is built when the listener starts, so it has to be rebuilt
+        # now that the permission exists.
+        self.app.listener.restart()
+        log.info("accessibility permission granted, listener restarted")
+        self._status.configure(
+            text="Granted. Try holding the dictation key. If it still does "
+                 "nothing, quit Coconut Whisper from the menu bar and open it "
+                 "again.")
+
+    def _close(self) -> None:
+        PermissionWindow._open = None
+        self.destroy()
+
+    def _center(self) -> None:
+        self.update_idletasks()
+        w, h = self.winfo_width(), self.winfo_height()
+        sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
+        self.geometry("+" + str(max(0, int(sw / 2 - w / 2)))
+                      + "+" + str(max(0, int(sh / 3 - h / 2))))
 
 
 def _icon_path():

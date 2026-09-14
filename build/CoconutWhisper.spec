@@ -2,12 +2,21 @@ from pathlib import Path
 
 # PyInstaller spec for Coconut Whisper. Windows produces a single exe, macOS
 # produces a .app bundle that lives in the menu bar.
+import re
 import sys
 
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 project = Path(SPECPATH).parent
 IS_MAC = sys.platform == "darwin"
+
+# One version number for the whole app. Read from the source so the bundle can
+# never disagree with what the app reports about itself.
+_found = re.search(
+    r'VERSION = "([^"]+)"',
+    (project / "app" / "main.py").read_text(encoding="utf-8"),
+)
+APP_VERSION = _found.group(1) if _found else "0.0.0"
 
 datas = [
     (str(project / "assets" / "icon.png"), "assets"),
@@ -31,7 +40,10 @@ hiddenimports = [
 ]
 if IS_MAC:
     hiddenimports += ["pynput.keyboard._darwin", "pynput.mouse._darwin",
-                      "pystray._darwin"]
+                      "pystray._darwin",
+                      # read through pyobjc to check the accessibility
+                      # permission, which nothing imports at module level
+                      "HIServices"]
 else:
     hiddenimports += ["pynput.keyboard._win32", "pynput.mouse._win32",
                       "pystray._win32", "winsound"]
@@ -81,12 +93,12 @@ if IS_MAC:
         name="Coconut Whisper.app",
         icon=icon,
         bundle_identifier="com.coconutva.whisper",
-        version="0.1.2",
+        version=APP_VERSION,
         info_plist={
             "CFBundleName": "Coconut Whisper",
             "CFBundleDisplayName": "Coconut Whisper",
-            "CFBundleShortVersionString": "0.1.2",
-            "CFBundleVersion": "0.1.2",
+            "CFBundleShortVersionString": APP_VERSION,
+            "CFBundleVersion": APP_VERSION,
             # menu bar app, no icon in the dock
             "LSUIElement": True,
             "LSMinimumSystemVersion": "12.0",

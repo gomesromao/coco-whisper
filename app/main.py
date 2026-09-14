@@ -1,6 +1,7 @@
 """Coconut Whisper: local push-to-talk dictation for the Coconut team."""
 from __future__ import annotations
 
+import faulthandler
 import json
 import logging
 import os
@@ -15,13 +16,14 @@ from pathlib import Path
 from . import audio, hotkey, inject, postprocess
 from .config import APP_NAME, Settings, data_dir, logs_dir, recordings_dir
 from .overlay import Overlay
-from .platform_support import (IS_MAC, claim_single_instance, open_folder,
-                               play_tone, show_message)
+from .platform_support import (IS_MAC, claim_single_instance,
+                               input_monitoring_ready, open_folder, play_tone,
+                               show_message)
 from .transcribe import Engine
 
 log = logging.getLogger("cocowhisper")
 
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 
 # Only the newest entries keep what was actually said. Older ones keep the
 # timing and language, which is what support questions need, and the file is
@@ -34,6 +36,35 @@ def resource_path(*parts: str) -> Path:
     base = getattr(sys, "_MEIPASS", None)
     root = Path(base) if base else Path(__file__).resolve().parent.parent
     return root.joinpath(*parts)
+
+
+NEWLINE = chr(10)
+
+# Kept open for the life of the process: faulthandler writes straight to the
+# file descriptor, so letting this be collected would silence it.
+_crash_file = None
+
+
+def setup_crash_log() -> None:
+    """Catches the crashes Python never sees.
+
+    A main thread rule broken in AppKit, or a fault inside PortAudio or Tk,
+    kills the process without raising anything, which is why a Mac crash left
+    us nothing to read. faulthandler writes the stack of every thread here
+    before the process goes down.
+    """
+    global _crash_file
+    try:
+        _crash_file = open(logs_dir() / "crash.log", "a", encoding="utf-8")
+        stamp = datetime.now().isoformat(timespec="seconds")
+        _crash_file.write(
+            NEWLINE + "=== " + stamp + " " + APP_NAME + " " + VERSION
+            + " on " + sys.platform + " ===" + NEWLINE
+        )
+        _crash_file.flush()
+        faulthandler.enable(file=_crash_file, all_threads=True)
+    except OSError:
+        log.debug("crash log unavailable", exc_info=True)
 
 
 def setup_logging() -> None:
@@ -108,8 +139,35 @@ class App:
         self._busy = threading.Lock()
         self._auto_stop: threading.Timer | None = None
         self._icons: dict = {}
+        self._main_thread = threading.get_ident()
 
     # ---------- lifecycle ----------
+
+    def on_main(self, fn) -> None:
+        """Runs fn on the thread that owns the interface.
+
+        The menu bar item is an AppKit object and AppKit refuses to be touched
+        from anywhere but the main thread: it does not raise, it takes the
+        process down with it, usually at the next click rather than at the
+        offending call. Windows is more forgiving, but the transcription and
+        preload threads have no business talking to the tray on either system.
+        """
+        if threading.get_ident() == self._main_thread:
+            fn()
+            return
+        self.later(fn)
+
+    def later(self, fn) -> None:
+        """Queues fn on the interface loop, never running it inline.
+
+        Windows are built through here on purpose. A tray callback on macOS
+        arrives while the menu is still open and still holding the run loop,
+        which is the worst possible moment to start putting a window together.
+        """
+        try:
+            self.root.after(0, fn)
+        except (tk.TclError, RuntimeError):
+            log.debug("interface already gone, dropping the update", exc_info=True)
 
     def run(self) -> None:
         self.listener.configure(
@@ -118,6 +176,7 @@ class App:
         self.listener.start()
         threading.Thread(target=self._preload, daemon=True).start()
         self._start_tray()
+        self.root.after(400, self.check_permissions)
         self.root.mainloop()
 
     def _preload(self) -> None:
@@ -135,9 +194,12 @@ class App:
         log.info("shutting down")
         self.listener.stop()
         if self.tray is not None:
-            self.tray.visible = False
-            self.tray.stop()
-        self.root.after(0, self.root.destroy)
+            try:
+                self.tray.visible = False
+                self.tray.stop()
+            except Exception:
+                log.debug("tray did not stop cleanly", exc_info=True)
+        self.later(self.root.destroy)
 
     def beep(self, kind: str) -> None:
         if self.settings.get("sounds"):
@@ -307,22 +369,31 @@ class App:
         return labels.get(self.state, self.state)
 
     def set_state(self, state: str) -> None:
+        # The state itself is read by the dictation logic from whatever thread
+        # it runs on, so it is set here. Only the drawing is handed over.
         self.state = state
+        self.on_main(lambda: self._paint_tray(state))
+
+    def _paint_tray(self, state: str) -> None:
+        if self.tray is None:
+            return
         icons = {
             "recording": "recording",
             "working": "busy",
             "loading": "busy",
             "starting": "busy",
         }
-        if self.tray is not None:
-            try:
-                self.tray.icon = self._icon_image(icons.get(state, "idle"))
-                self.tray.title = APP_NAME + " - " + self.status_text()
-                self.tray.update_menu()
-            except Exception:
-                log.debug("tray update failed", exc_info=True)
+        try:
+            self.tray.icon = self._icon_image(icons.get(state, "idle"))
+            self.tray.title = APP_NAME + " - " + self.status_text()
+            self.tray.update_menu()
+        except Exception:
+            log.debug("tray update failed", exc_info=True)
 
     def notify(self, title: str, message: str) -> None:
+        self.on_main(lambda: self._show_notification(title, message))
+
+    def _show_notification(self, title: str, message: str) -> None:
         if self.tray is None:
             return
         try:
@@ -355,6 +426,7 @@ class App:
             ),
             Menu.SEPARATOR,
             MenuItem("Settings", self.open_settings, default=True),
+            *([MenuItem("Permissions", self.open_permissions)] if IS_MAC else []),
             MenuItem("Open log folder", lambda *_: open_folder(logs_dir())),
             MenuItem("Version " + VERSION, None, enabled=False),
             Menu.SEPARATOR,
@@ -379,7 +451,21 @@ class App:
     def open_settings(self, *_args) -> None:
         from .ui import SettingsWindow
 
-        self.root.after(0, lambda: SettingsWindow(self.root, self))
+        log.info("opening settings")
+        self.later(lambda: SettingsWindow(self.root, self))
+
+    def open_permissions(self, *_args) -> None:
+        from .ui import PermissionWindow
+
+        self.later(lambda: PermissionWindow(self.root, self))
+
+    def check_permissions(self) -> None:
+        """On a Mac the hotkey is dead until the user allows it, and nothing
+        on screen says so. Ask for it once, at the start."""
+        if input_monitoring_ready():
+            return
+        log.info("accessibility permission is missing, asking for it")
+        self.open_permissions()
 
     def apply_settings(self) -> None:
         """Called by the settings window after values change."""
@@ -398,6 +484,7 @@ class App:
 
 def main() -> None:
     setup_logging()
+    setup_crash_log()
     if not claim_single_instance():
         log.info("another instance is already running")
         show_message(
