@@ -1,5 +1,7 @@
 """Quick checks for the pieces that do not need a GUI."""
-from app import postprocess, hotkey
+import sys
+
+from app import hotkey, platform_support, postprocess
 
 def check(name, got, want):
     status = "PASS" if got == want else "FAIL"
@@ -29,7 +31,14 @@ results.append(check("portuguese untouched",
     "Preciso revisar a lista de leads"))
 results.append(check("hotkey parse combo",
     hotkey.parse("ctrl+shift+space"), {"ctrl", "shift", "space"}))
-results.append(check("hotkey describe",
-    hotkey.describe("right_ctrl"), "Right Ctrl"))
+# F9 is the one key labelled the same on both systems. Right Ctrl is
+# "Right Control" on a Mac, which used to fail here unnoticed.
+results.append(check("hotkey describe", hotkey.describe("f9"), "F9"))
+results.append(check("hotkey describe drops the recommendation",
+    "(recommended)" in hotkey.describe(platform_support.default_hotkey()),
+    False))
 
 print("\n%d/%d passed" % (sum(results), len(results)))
+# Without this the step is decorative: a failing check still printed and
+# still let the build through.
+sys.exit(0 if all(results) else 1)

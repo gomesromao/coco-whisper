@@ -108,6 +108,43 @@ jobs:
           name: macos-${{ matrix.label }}
           path: dist/CoconutWhisper-macOS-${{ matrix.label }}.zip
 
+  # The release builds run on the oldest macOS we support, which is exactly
+  # where the newest rules have not landed yet. Every crash the team has hit
+  # was a rule macOS 26 tightened, so the runtime test runs there too. No
+  # artifact comes out of this: it exists to say whether the app survives on
+  # the version people are actually on.
+  latest-macos:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+      - name: Generate icons
+        run: python build/gen_icons.py
+      - name: Build the icns icon
+        run: |
+          mkdir -p icon.iconset
+          for size in 16 32 64 128 256 512; do
+            sips -z $size $size assets/icon.png --out icon.iconset/icon_${size}x${size}.png
+            double=$((size * 2))
+            sips -z $double $double assets/icon.png --out icon.iconset/icon_${size}x${size}@2x.png
+          done
+          iconutil -c icns icon.iconset -o assets/icon.icns
+      - name: Run tests
+        run: python test_core.py
+      - name: Build
+        run: pyinstaller --noconfirm --clean --distpath dist --workpath .pybuild build/CoconutWhisper.spec
+      - name: Sign the bundle
+        run: codesign --force --deep --sign - "dist/Coconut Whisper.app"
+      - name: Run the packaged app for real
+        run: '"dist/Coconut Whisper.app/Contents/MacOS/CoconutWhisper" --runtime-test'
+
   release:
     needs: [windows, macos]
     if: startsWith(github.ref, 'refs/tags/v')
