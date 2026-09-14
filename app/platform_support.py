@@ -224,6 +224,58 @@ def input_monitoring_ready() -> bool:
         return True
 
 
+_layout_context = None
+_original_keycode_context = None
+
+
+def prime_keyboard_layout() -> bool:
+    """Reads the keyboard layout here, on the thread macOS insists on.
+
+    pynput asks Carbon for the layout from inside its own listener thread.
+    On macOS 26 that call runs dispatch_assert_queue against the main queue
+    and traps, which takes the process down with no exception and nothing in
+    the log. Reading it once up front and handing pynput the answer keeps the
+    listener thread away from Carbon altogether. What pynput does with the
+    value afterwards is UCKeyTranslate, which is pure and safe on any thread.
+
+    The layout is a snapshot, so switching input source while the app runs
+    leaves it stale until the next call. Worth it: the alternative is the app
+    dying the moment the hotkey listener starts.
+    """
+    global _layout_context, _original_keycode_context
+    if not IS_MAC:
+        return True
+    try:
+        import contextlib
+
+        from pynput.keyboard import _darwin
+
+        if _original_keycode_context is None:
+            _original_keycode_context = _darwin.keycode_context
+
+        with _original_keycode_context() as context:
+            keyboard_type, layout_data = context
+
+        if layout_data is None:
+            # Nothing useful to cache. Leaving pynput alone is no worse than
+            # replacing it with a context that cannot translate anything.
+            log.warning("no keyboard layout came back, leaving pynput alone")
+            return False
+
+        _layout_context = (keyboard_type, layout_data)
+
+        @contextlib.contextmanager
+        def cached_context():
+            yield _layout_context
+
+        _darwin.keycode_context = cached_context
+        log.info("keyboard layout read on the main thread")
+        return True
+    except Exception:
+        log.exception("could not read the keyboard layout up front")
+        return False
+
+
 def open_accessibility_settings() -> None:
     try:
         subprocess.Popen(["open", ACCESSIBILITY_PANE])

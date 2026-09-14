@@ -19,12 +19,12 @@ from .config import APP_NAME, Settings, data_dir, logs_dir, recordings_dir
 from .overlay import Overlay
 from .platform_support import (IS_MAC, claim_single_instance,
                                input_monitoring_ready, open_folder, play_tone,
-                               show_message)
+                               prime_keyboard_layout, show_message)
 from .transcribe import Engine
 
 log = logging.getLogger("cocowhisper")
 
-VERSION = "0.1.7"
+VERSION = "0.1.8"
 
 # Only the newest entries keep what was actually said. Older ones keep the
 # timing and language, which is what support questions need, and the file is
@@ -202,6 +202,9 @@ class App:
         self.listener.configure(
             self.settings.get("hotkey"), self.settings.get("hotkey_mode")
         )
+        # Before the listener exists: the thread it starts must never be
+        # the one that talks to Carbon.
+        prime_keyboard_layout()
         self.listener.start()
         threading.Thread(target=self._preload, daemon=True).start()
         self._start_tray()

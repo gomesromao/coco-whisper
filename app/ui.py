@@ -12,7 +12,8 @@ from .platform_support import (IS_MAC, input_monitoring_ready,
                                installed_properly, is_translocated,
                                open_accessibility_settings,
                                open_applications_folder, open_folder,
-                               play_tone, request_accessibility, set_startup,
+                               play_tone, prime_keyboard_layout,
+                               request_accessibility, set_startup,
                                startup_enabled)
 from .transcribe import LANGUAGES, MODEL_CATALOG, cuda_available
 
@@ -499,14 +500,29 @@ class PermissionWindow(tk.Toplevel):
             return
         self._done = True
         self._cancel_poll()
-        # The tap is built when the listener starts, so it has to be rebuilt
-        # now that the permission exists.
-        self.app.listener.restart()
-        log.info("accessibility permission granted, listener restarted")
+        # The answer goes on screen first. Rebuilding the listener reaches
+        # into the system, and if that ever fails the user still has to be
+        # able to see that the permission itself went through. Getting this
+        # order wrong is why a granted permission read as refused.
         self._status.configure(
             text="Granted. Try holding the dictation key. If it still does "
                  "nothing, quit Coconut Whisper from the menu bar and open it "
                  "again.")
+        try:
+            self.update_idletasks()
+        except tk.TclError:
+            pass
+        # Reading the layout again here picks up an input source changed
+        # while the app was waiting, and does it on the interface thread.
+        prime_keyboard_layout()
+        # The tap is built when the listener starts, so it has to be rebuilt
+        # now that the permission exists.
+        try:
+            self.app.listener.restart()
+        except Exception:
+            log.exception("the listener did not come back after the grant")
+            return
+        log.info("accessibility permission granted, listener restarted")
 
     def _cancel_poll(self) -> None:
         if self._poll_id is not None:
