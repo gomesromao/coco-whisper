@@ -8,7 +8,7 @@ from tkinter import ttk
 from . import audio
 from .config import APP_NAME, data_dir
 from .hotkey import HOTKEY_CHOICES, describe
-from .platform_support import (IS_MAC, input_monitoring_ready,
+from .platform_support import (IS_MAC, can_relaunch, input_monitoring_ready,
                                installed_properly, is_translocated,
                                open_accessibility_settings,
                                open_applications_folder, open_folder,
@@ -34,6 +34,12 @@ PERMISSION_POLL_MS = 1000
 # Long enough to read the confirmation, short enough that nobody is left
 # wondering whether the window is stuck again.
 PERMISSION_CLOSE_MS = 2500
+# The app closing and reopening itself is startling if it happens with no
+# warning, so the notice sits there a beat longer than a plain confirmation.
+PERMISSION_RESTART_MS = 4000
+# How long to let the rebuilt listener settle before asking whether it is
+# real. Only used where there is no bundle to reopen.
+TAP_CHECK_MS = 1500
 
 
 def _configure_styles(widget) -> None:
@@ -391,7 +397,9 @@ class PermissionWindow(tk.Toplevel):
         PermissionWindow._open = self
         self.app = app
         self._poll_id = None
+        self._close_id = None
         self._done = False
+        self._restarting = False
 
         self.title(APP_NAME + " needs permission")
         self.configure(bg=BG)
@@ -510,23 +518,102 @@ class PermissionWindow(tk.Toplevel):
             return
         self._done = True
         self._cancel_poll()
-        # The answer takes over the whole window, before anything else runs.
-        # Rebuilding the listener reaches into the system, and if that fails
-        # the user still has to see that the permission went through. Leaving
-        # the old heading and the old steps up while a small grey line below
-        # claimed success is how a working app read as a broken one.
-        self._celebrate()
         # Reading the layout again here picks up an input source changed
         # while the app was waiting, and does it on the interface thread.
         prime_keyboard_layout()
-        # The tap is built when the listener starts, so it has to be rebuilt
-        # now that the permission exists.
+        if self._misplaced():
+            # macOS took the grant, but it filed it against a path this copy
+            # will not have again. Reopening it would only spend the
+            # permission on a fresh throwaway location, so the steps already
+            # on screen stay up and the status line says why.
+            log.info("permission granted to a copy whose path will not last")
+            try:
+                self._status.configure(
+                    text="macOS accepted it, but this copy is handed a new "
+                         "location every time it opens, so the permission is "
+                         "gone by the next launch. Move Coconut Whisper into "
+                         "Applications and open it from there.")
+            except tk.TclError:
+                log.debug("the permission window went away", exc_info=True)
+            return
+        if can_relaunch():
+            # macOS settled at launch that this process may not watch the
+            # keyboard, and a grant arriving now does not revisit it. Building
+            # a new tap in place is exactly what made the app announce success
+            # and then sit there deaf for the rest of the session.
+            log.info("accessibility permission granted, restarting the app")
+            self._announce_restart()
+            return
+        # Run from source there is no bundle to reopen, so rebuild in place
+        # and then go back and check whether it actually took.
         try:
             self.app.listener.restart()
         except Exception:
             log.exception("the listener did not come back after the grant")
             return
         log.info("accessibility permission granted, listener restarted")
+        self._celebrate()
+        self.after(TAP_CHECK_MS, self._verify_tap)
+
+    def _announce_restart(self) -> None:
+        """Turns the window into the news that the app is about to come back."""
+        try:
+            key = describe(self.app.settings.get("hotkey"))
+        except Exception:
+            key = "the dictation key"
+        try:
+            self.title(APP_NAME + " is ready")
+            self._headline.configure(text="That did it")
+            self._subhead.configure(
+                text="One restart and the dictation key is yours.")
+            self._explain.configure(
+                text="macOS only hands this permission to an app as it starts, "
+                     "so Coconut Whisper has to close and open again before it "
+                     "can see the key. It does that itself, right now, and is "
+                     "back in the menu bar in a few seconds. Then click into "
+                     "any text box, hold " + key + " and talk.")
+            self._steps.destroy()
+            self._status.configure(text="")
+            for child in self._footer.winfo_children():
+                child.destroy()
+            ttk.Button(self._footer, text="Restart now", style="Accent.TButton",
+                       command=self._restart_now).pack(side="right")
+            self.update_idletasks()
+            self.after(PERMISSION_RESTART_MS, self._restart_now)
+        except tk.TclError:
+            log.debug("the permission window went away before the restart",
+                      exc_info=True)
+            self._restart_now()
+
+    def _restart_now(self) -> None:
+        """Both the button and the timer land here, and only one may count."""
+        if self._restarting:
+            return
+        self._restarting = True
+        self.app.restart()
+
+    def _verify_tap(self) -> None:
+        """Checks that the rebuilt listener is real before the window agrees.
+
+        The permission can read as granted while macOS still refuses the tap,
+        and pynput reports that refusal to nobody. Claiming success anyway is
+        how a deaf app passed for a working one.
+        """
+        if self.app.listener.tap_alive() is not False:
+            return
+        log.warning("permission granted but the key tap is still refused")
+        self._cancel_close()
+        try:
+            self._headline.configure(text="Almost there")
+            self._subhead.configure(
+                text="The permission is in place, the keyboard is not yet.")
+            self._explain.configure(
+                text="macOS hands this out as an app starts, so Coconut Whisper "
+                     "has to be opened again before it can see the key. Quit it "
+                     "from the menu bar and open it once more.")
+        except tk.TclError:
+            log.debug("the permission window went away before the warning",
+                      exc_info=True)
 
     def _celebrate(self) -> None:
         """Turns the whole window into the answer, then shows itself out."""
@@ -552,7 +639,9 @@ class PermissionWindow(tk.Toplevel):
             ttk.Button(self._footer, text="Close", style="Accent.TButton",
                        command=self._close).pack(side="right")
             self.update_idletasks()
-            self.after(PERMISSION_CLOSE_MS, self._close)
+            # Held on to: if the tap check below finds the listener deaf, this
+            # window has to stay up and say so instead of closing on a lie.
+            self._close_id = self.after(PERMISSION_CLOSE_MS, self._close)
         except tk.TclError:
             log.debug("the permission window went away mid celebration",
                       exc_info=True)
@@ -565,8 +654,21 @@ class PermissionWindow(tk.Toplevel):
                 pass
             self._poll_id = None
 
+    def _cancel_close(self) -> None:
+        if self._close_id is not None:
+            try:
+                self.after_cancel(self._close_id)
+            except tk.TclError:
+                pass
+            self._close_id = None
+
     def _close(self) -> None:
         self._cancel_poll()
+        self._cancel_close()
+        # Closing the window calls off a restart it had lined up: quitting the
+        # app out from under someone who just dismissed the notice would be
+        # the rudest possible reading of that click.
+        self._restarting = True
         self._done = True
         PermissionWindow._open = None
         # The window closes itself after a grant, so a button press or a

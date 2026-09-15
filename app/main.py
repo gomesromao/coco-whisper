@@ -19,12 +19,13 @@ from .config import APP_NAME, Settings, data_dir, logs_dir, recordings_dir
 from .overlay import Overlay
 from .platform_support import (IS_MAC, claim_single_instance, frontmost_app,
                                input_monitoring_ready, open_folder, play_tone,
-                               prime_keyboard_layout, return_focus, show_message)
+                               prime_keyboard_layout, relaunch, return_focus,
+                               show_message)
 from .transcribe import Engine
 
 log = logging.getLogger("cocowhisper")
 
-VERSION = "0.1.10"
+VERSION = "0.1.11"
 
 # Only the newest entries keep what was actually said. Older ones keep the
 # timing and language, which is what support questions need, and the file is
@@ -236,6 +237,17 @@ class App:
             except Exception:
                 log.debug("tray did not stop cleanly", exc_info=True)
         self.later(self.root.destroy)
+
+    def restart(self) -> None:
+        """Quits and comes straight back as a new process.
+
+        The permission the dictation key depends on is handed out per process
+        at launch, so a grant that arrives while we are running never reaches
+        the keyboard. Coming back is the only thing that works.
+        """
+        if not relaunch():
+            log.warning("no fresh copy could be arranged, only quitting")
+        self.quit()
 
     def beep(self, kind: str) -> None:
         if self.settings.get("sounds"):

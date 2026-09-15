@@ -108,12 +108,37 @@ class HotkeyListener:
             self._listener = None
 
     def restart(self) -> None:
-        """Builds a fresh listener. On macOS the keyboard tap is only created
-        when the listener starts, so a permission granted after launch needs
-        this before any key reaches us."""
+        """Builds a fresh listener.
+
+        Enough when the hotkey changes or the keyboard layout moves. NOT
+        enough after a macOS permission is granted: that is decided per
+        process at launch, so the new tap is refused just as quietly as the
+        old one. Relaunch the app for that, and check tap_alive if you must
+        do it in place.
+        """
         self.stop()
         self.reset()
         self.start()
+
+    def tap_alive(self):
+        """Whether the key tap really exists: True, False, or None when the
+        backend will not say yet.
+
+        pynput answers a tap macOS refused by marking the listener ready and
+        returning, with no exception and nothing in the log, so a listener
+        that will never report a key looks exactly like a healthy one. The run
+        loop it holds while the tap lives is the only honest sign, and it is
+        private, so anything unexpected here answers None. Never blocks: the
+        interface thread is usually the one asking.
+        """
+        listener = self._listener
+        if listener is None:
+            return False
+        if not getattr(listener, "_ready", False):
+            return None
+        if not hasattr(listener, "_loop"):
+            return None
+        return getattr(listener, "_loop", None) is not None
 
     def _prune(self, now: float) -> None:
         """Drops keys that have been down so long the release was lost."""

@@ -79,13 +79,15 @@ def _on_worker(fn) -> None:
 def run() -> int:
     from .config import APP_NAME
     from .main import VERSION
-    from .platform_support import (IS_MAC, focus_mechanism, frontmost_app,
-                                   input_monitoring_ready, play_tone,
-                                   prime_keyboard_layout, return_focus)
+    from .platform_support import (IS_MAC, can_relaunch, focus_mechanism,
+                                   frontmost_app, input_monitoring_ready,
+                                   play_tone, prime_keyboard_layout,
+                                   return_focus)
 
     _watchdog()
     print(APP_NAME + " " + VERSION + " runtime test on " + sys.platform, flush=True)
     print("accessibility: " + str(input_monitoring_ready()), flush=True)
+    print("can relaunch: " + str(can_relaunch()), flush=True)
 
     # ---------- the parts that need no window ----------
 
@@ -117,6 +119,15 @@ def run() -> int:
     # pynput reads the layout again from inside the thread it starts. Without
     # the priming above, this is where macOS 26 takes the process down.
     _step("start the hotkey listener", lambda: (listener.start(), time.sleep(2)))
+
+    # Reported, never failed: a CI runner is not a trusted app and its tap is
+    # refused every time. The line is here so that a machine where the key
+    # does nothing can be told apart from one where it works, which is not
+    # something the log could show before.
+    def tap() -> None:
+        print("key tap alive: " + str(listener.tap_alive()), flush=True)
+
+    _step("ask whether the key tap is real", tap)
     _step("restart the hotkey listener", lambda: (listener.restart(), time.sleep(2)))
     _step("stop the hotkey listener", listener.stop)
 

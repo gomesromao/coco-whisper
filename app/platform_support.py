@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shlex
 import subprocess
 import sys
 import threading
@@ -285,6 +286,48 @@ def installed_properly() -> bool:
 
 def open_applications_folder() -> None:
     open_folder(APPLICATIONS)
+
+
+# ---------- coming back as a new process ----------
+
+def can_relaunch() -> bool:
+    """True when we know of an .app we could open again."""
+    return bundle_path() is not None
+
+
+def relaunch() -> bool:
+    """Arranges for a fresh copy to open once this one has exited.
+
+    macOS settles what a process is allowed to watch when the process starts.
+    Granting the permission to a running app flips AXIsProcessTrusted to yes
+    while the keyboard tap stays empty, so rebuilding the listener in place
+    does nothing: only a new process gets the keys. That is why the app went
+    silent right after saying the permission had gone through.
+
+    The helper waits for this process to die before opening the new copy,
+    because the single instance lock on LOCK_PORT is only released then.
+    Returns True when the helper is on its way, and the caller still has to
+    quit.
+    """
+    bundle = bundle_path()
+    if bundle is None:
+        return False
+    script = (
+        "while kill -0 " + str(os.getpid()) + " 2>/dev/null; do sleep 0.2; done; "
+        "open -n " + shlex.quote(str(bundle))
+    )
+    try:
+        subprocess.Popen(
+            ["/bin/sh", "-c", script],
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        log.info("a fresh copy will open once this one exits")
+        return True
+    except Exception:
+        log.exception("could not arrange the relaunch")
+        return False
 
 
 # ---------- permissions ----------
