@@ -79,8 +79,9 @@ def _on_worker(fn) -> None:
 def run() -> int:
     from .config import APP_NAME
     from .main import VERSION
-    from .platform_support import (IS_MAC, input_monitoring_ready,
-                                   play_tone, prime_keyboard_layout)
+    from .platform_support import (IS_MAC, focus_mechanism, frontmost_app,
+                                   input_monitoring_ready, play_tone,
+                                   prime_keyboard_layout, return_focus)
 
     _watchdog()
     print(APP_NAME + " " + VERSION + " runtime test on " + sys.platform, flush=True)
@@ -96,6 +97,17 @@ def run() -> int:
             raise RuntimeError("the keyboard layout could not be read")
 
     _step("read the keyboard layout on the main thread", layout)
+
+    # The focus handback leans on an API Apple deprecated in macOS 14. Better
+    # to learn here than from someone whose text went nowhere.
+    def focus() -> None:
+        how = focus_mechanism()
+        print("focus API: " + how, flush=True)
+        if IS_MAC and how in ("none", "unavailable"):
+            raise RuntimeError("no way to hand the focus back: " + how)
+        return_focus(frontmost_app())
+
+    _step("find a way to hand the focus back", focus)
 
     from . import hotkey
 

@@ -174,6 +174,47 @@ def frontmost_app():
         return None
 
 
+# activate() arrived in macOS 14 and is the one Apple wants used.
+# activateWithOptions_ is what came before and is deprecated, so it is tried
+# second and may well stop working on some future release.
+_ACTIVATORS = ("activate", "activateWithOptions_")
+
+
+def _activate(app) -> str:
+    """Brings app forward. Returns the name of whatever actually worked."""
+    for name in _ACTIVATORS:
+        method = getattr(app, name, None)
+        if method is None:
+            continue
+        try:
+            method() if name == "activate" else method(0)
+            return name
+        except Exception:
+            log.debug("%s was there but did not work", name, exc_info=True)
+    return ""
+
+
+def focus_mechanism() -> str:
+    """Which activation API this machine offers, for the self test to report.
+
+    One of the two is deprecated, so it is worth knowing which one a given
+    macOS still answers to before finding out from a user.
+    """
+    if not IS_MAC:
+        return "not needed"
+    try:
+        from AppKit import NSRunningApplication
+
+        app = NSRunningApplication.currentApplication()
+        for name in _ACTIVATORS:
+            if getattr(app, name, None) is not None:
+                return name
+        return "none"
+    except Exception:
+        log.debug("could not read the activation API", exc_info=True)
+        return "unavailable"
+
+
 def return_focus(app) -> None:
     """Puts app back in front, but only when we are the ones in its way.
 
@@ -192,8 +233,11 @@ def return_focus(app) -> None:
             return
         if app.processIdentifier() == mine.processIdentifier():
             return
-        log.info("handing the focus back to %s", app.localizedName())
-        app.activateWithOptions_(0)
+        used = _activate(app)
+        if not used:
+            log.warning("no way to hand the focus back to %s", app.localizedName())
+            return
+        log.info("handed the focus back to %s using %s", app.localizedName(), used)
         # Activation is asynchronous, and the paste needs the caret to be there.
         time.sleep(0.15)
     except Exception:
