@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -152,6 +153,51 @@ def hotkey_choices() -> list[tuple[str, str]]:
         ("Ctrl + Shift + Space", "ctrl+shift+space"),
         ("Alt + Space", "alt+space"),
     ]
+
+
+# ---------- who has the keyboard ----------
+
+def frontmost_app():
+    """The app holding the keyboard right now, or None where it does not apply.
+
+    Only macOS needs this. On Windows a borderless window can come up without
+    the caret moving; on macOS showing any window activates the whole app.
+    """
+    if not IS_MAC:
+        return None
+    try:
+        from AppKit import NSWorkspace
+
+        return NSWorkspace.sharedWorkspace().frontmostApplication()
+    except Exception:
+        log.debug("could not read the frontmost app", exc_info=True)
+        return None
+
+
+def return_focus(app) -> None:
+    """Puts app back in front, but only when we are the ones in its way.
+
+    Deliberately narrow. If the user has moved to something else since they
+    started speaking, that is their business and pulling them back would be
+    worse than pasting nowhere.
+    """
+    if not IS_MAC or app is None:
+        return
+    try:
+        from AppKit import NSRunningApplication, NSWorkspace
+
+        mine = NSRunningApplication.currentApplication()
+        current = NSWorkspace.sharedWorkspace().frontmostApplication()
+        if current is None or current.processIdentifier() != mine.processIdentifier():
+            return
+        if app.processIdentifier() == mine.processIdentifier():
+            return
+        log.info("handing the focus back to %s", app.localizedName())
+        app.activateWithOptions_(0)
+        # Activation is asynchronous, and the paste needs the caret to be there.
+        time.sleep(0.15)
+    except Exception:
+        log.debug("could not hand the focus back", exc_info=True)
 
 
 # ---------- where we are installed ----------
@@ -376,14 +422,24 @@ def set_startup(enabled: bool) -> bool:
 
 # ---------- dialogs ----------
 
-def show_message(title: str, text: str) -> None:
+DIALOG_TIMEOUT = 20.0
+
+
+def show_message(title: str, text: str, timeout: float = DIALOG_TIMEOUT) -> None:
+    """A plain dialog that closes itself when nobody comes to click it.
+
+    The already running notice used to wait forever for an OK, so every extra
+    double click left a process standing around holding an invisible box.
+    """
     try:
         import tkinter as tk
         from tkinter import messagebox
 
         root = tk.Tk()
         root.withdraw()
-        messagebox.showinfo(title, text)
+        if timeout > 0:
+            root.after(int(timeout * 1000), root.destroy)
+        messagebox.showinfo(title, text, parent=root)
         root.destroy()
     except Exception:
         log.info("%s: %s", title, text)

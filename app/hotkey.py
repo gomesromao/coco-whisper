@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 
 from pynput import keyboard
 
@@ -11,6 +12,14 @@ from .platform_support import hotkey_choices
 log = logging.getLogger(__name__)
 
 HOTKEY_CHOICES = hotkey_choices()
+
+# A key going up can be lost: another app swallows it, the screen locks, a
+# menu holds the run loop. The key then counts as held for the rest of the
+# session and the hotkey never fires again, which is exactly how the app
+# went silent on two machines. Anything still down after this long is
+# treated as a lost release. It sits above the longest dictation the app
+# will allow, so a key genuinely held through one is never dropped.
+STALE_SECONDS = 240
 
 # Built defensively: the key names pynput exposes differ between backends, and
 # a missing one must not stop the app from starting.
@@ -68,7 +77,9 @@ class HotkeyListener:
         self._on_stop = on_stop
         self._required: set[str] = parse("right_ctrl")
         self._mode = "hold"
-        self._pressed: set[str] = set()
+        # token -> when it went down, so a release that never arrives can be
+        # told apart from a key someone is really holding.
+        self._held: dict[str, float] = {}
         self._active = False
         self._lock = threading.Lock()
         self._listener: keyboard.Listener | None = None
@@ -104,16 +115,27 @@ class HotkeyListener:
         self.reset()
         self.start()
 
+    def _prune(self, now: float) -> None:
+        """Drops keys that have been down so long the release was lost."""
+        stale = [t for t, at in self._held.items() if now - at > STALE_SECONDS]
+        for token in stale:
+            del self._held[token]
+        if stale:
+            log.info("released keys that were stuck down: %s", ", ".join(sorted(stale)))
+
     def _satisfied(self) -> bool:
-        return bool(self._required) and self._required.issubset(self._pressed)
+        return bool(self._required) and self._required.issubset(self._held)
 
     def _handle_press(self, key) -> None:
         tokens = _tokens_for(key)
         if not tokens:
             return
+        stamp = time.monotonic()
         with self._lock:
+            self._prune(stamp)
             was = self._satisfied()
-            self._pressed |= tokens
+            for token in tokens:
+                self._held[token] = stamp
             now = self._satisfied()
             mode, active = self._mode, self._active
         if was or not now:
@@ -127,9 +149,12 @@ class HotkeyListener:
         tokens = _tokens_for(key)
         if not tokens:
             return
+        stamp = time.monotonic()
         with self._lock:
+            self._prune(stamp)
             was = self._satisfied()
-            self._pressed -= tokens
+            for token in tokens:
+                self._held.pop(token, None)
             now = self._satisfied()
             mode, active = self._mode, self._active
         if mode == "hold" and was and not now and active:
@@ -142,5 +167,5 @@ class HotkeyListener:
 
     def reset(self) -> None:
         with self._lock:
-            self._pressed.clear()
+            self._held.clear()
             self._active = False

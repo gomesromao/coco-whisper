@@ -17,14 +17,14 @@ from pathlib import Path
 from . import audio, hotkey, inject, postprocess
 from .config import APP_NAME, Settings, data_dir, logs_dir, recordings_dir
 from .overlay import Overlay
-from .platform_support import (IS_MAC, claim_single_instance,
+from .platform_support import (IS_MAC, claim_single_instance, frontmost_app,
                                input_monitoring_ready, open_folder, play_tone,
-                               prime_keyboard_layout, show_message)
+                               prime_keyboard_layout, return_focus, show_message)
 from .transcribe import Engine
 
 log = logging.getLogger("cocowhisper")
 
-VERSION = "0.1.8"
+VERSION = "0.1.9"
 
 # Only the newest entries keep what was actually said. Older ones keep the
 # timing and language, which is what support questions need, and the file is
@@ -147,6 +147,9 @@ class App:
         self.last_text = ""
         self._busy = threading.Lock()
         self._auto_stop: threading.Timer | None = None
+        # Who was in front when the key went down, so the text can be given
+        # back to them if anything of ours steals the focus meanwhile.
+        self._caller = None
         self._icons: dict = {}
 
     # ---------- lifecycle ----------
@@ -242,11 +245,15 @@ class App:
 
     def start_dictation(self) -> None:
         if self.state in {"loading", "starting"}:
+            log.info("key held while the model was still %s", self.state)
             self.notify(APP_NAME, "Still loading the model, one moment.")
             self.beep("error")
             return
         if self.state == "working" or self.recorder.is_recording:
+            log.info("key held while already busy (state=%s, recording=%s)",
+                     self.state, self.recorder.is_recording)
             return
+        self._caller = frontmost_app()
         try:
             self.recorder.start(self.settings.get("input_device"))
         except audio.RecordingError as exc:
@@ -254,6 +261,7 @@ class App:
             self.notify("Microphone unavailable", "Check your input device in Settings.")
             self.beep("error")
             return
+        log.info("dictation started")
         self.set_state("recording")
         self.beep("start")
         if self.settings.get("show_overlay"):
@@ -263,15 +271,33 @@ class App:
     def stop_dictation(self) -> None:
         self._disarm_auto_stop()
         if not self.recorder.is_recording:
+            log.info("key released with nothing recording")
             return
         buffer, peak = self.recorder.stop()
         self.beep("stop")
         seconds = buffer.size / audio.SAMPLE_RATE
+        log.info("dictation stopped: %.2fs captured, peak %.4f", seconds, peak)
+
+        if buffer.size == 0:
+            # The stream opened and not one block arrived. On Windows this is
+            # usually another program holding the device, NVIDIA Broadcast and
+            # the like. Saying nothing here cost an evening once.
+            log.error("the microphone opened but delivered no audio at all")
+            self.overlay.hide()
+            self.set_state("idle")
+            self.notify(
+                "No sound from the microphone",
+                "It opened but sent nothing. Another app may be holding it. "
+                "Try a different input in Settings.")
+            self.beep("error")
+            return
         if seconds < audio.MIN_SECONDS:
+            log.info("too short to transcribe, needs %.2fs", audio.MIN_SECONDS)
             self.overlay.hide()
             self.set_state("idle")
             return
         if peak < 0.004:
+            log.info("silence, peak %.4f below the floor", peak)
             self.overlay.hide()
             self.set_state("idle")
             self.notify("Nothing was recorded", "The microphone picked up silence.")
@@ -325,6 +351,9 @@ class App:
                 return
 
             self.last_text = text
+            # If anything of ours ended up in front, hand the caret back to
+            # whoever the user was typing into, or the paste lands nowhere.
+            return_focus(self._caller)
             inject.deliver(text, self.settings.get("insert_mode"))
             self._record_history(text, result, seconds, elapsed, buffer)
             self.overlay.hide()

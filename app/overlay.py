@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 
+from .platform_support import IS_MAC
+
 log = logging.getLogger(__name__)
 
 NAVY = "#0B1E3F"
@@ -37,7 +39,21 @@ class Overlay:
     def _build(self) -> None:
         win = tk.Toplevel(self._root)
         win.withdraw()
-        win.overrideredirect(True)
+        if IS_MAC:
+            # An ordinary Toplevel brings the whole app to the front on
+            # macOS. That takes the caret away from whatever the user was
+            # typing into, and the transcript then has nowhere to land. The
+            # help window class with noActivates floats above everything and
+            # never takes focus, which is what a status pill wants.
+            try:
+                win.tk.call("::tk::unsupported::MacWindowStyle", "style",
+                            win._w, "help", "noActivates")
+            except tk.TclError:
+                log.debug("overlay could not be made non activating",
+                          exc_info=True)
+                win.overrideredirect(True)
+        else:
+            win.overrideredirect(True)
         win.attributes("-topmost", True)
         win.attributes("-alpha", 0.96)
         win.configure(bg=NAVY)

@@ -7,7 +7,7 @@ from tkinter import ttk
 
 from . import audio
 from .config import APP_NAME, data_dir
-from .hotkey import HOTKEY_CHOICES
+from .hotkey import HOTKEY_CHOICES, describe
 from .platform_support import (IS_MAC, input_monitoring_ready,
                                installed_properly, is_translocated,
                                open_accessibility_settings,
@@ -31,6 +31,9 @@ CONTENT_WIDTH = 520
 # The permission window watches for the grant instead of asking the user to
 # come back and click something.
 PERMISSION_POLL_MS = 1000
+# Long enough to read the confirmation, short enough that nobody is left
+# wondering whether the window is stuck again.
+PERMISSION_CLOSE_MS = 2500
 
 
 def _configure_styles(widget) -> None:
@@ -408,10 +411,13 @@ class PermissionWindow(tk.Toplevel):
         _configure_styles(self)
         header = tk.Frame(self, bg=NAVY, padx=20, pady=12)
         header.pack(fill="x")
-        tk.Label(header, text="One permission to go", bg=NAVY, fg="#FFFFFF",
-                 font=("Segoe UI", 15, "bold")).pack(anchor="w")
-        tk.Label(header, text="macOS keeps the keyboard private until you say otherwise.",
-                 bg=NAVY, fg="#C8D2E2", font=("Segoe UI", 9)).pack(anchor="w")
+        self._headline = tk.Label(header, text="One permission to go", bg=NAVY,
+                                  fg="#FFFFFF", font=("Segoe UI", 15, "bold"))
+        self._headline.pack(anchor="w")
+        self._subhead = tk.Label(
+            header, text="macOS keeps the keyboard private until you say otherwise.",
+            bg=NAVY, fg="#C8D2E2", font=("Segoe UI", 9))
+        self._subhead.pack(anchor="w")
 
         body = tk.Frame(self, bg=BG, padx=20, pady=16)
         body.pack(fill="both", expand=True)
@@ -439,11 +445,14 @@ class PermissionWindow(tk.Toplevel):
                 "remove it with the minus button.",
                 "3.  Come back here and click Ask macOS.",
             ))
-        tk.Label(body, text=explain,
-                 bg=BG, fg=FG, font=("Segoe UI", 10), wraplength=440,
-                 justify="left").pack(anchor="w")
-        tk.Label(body, text=steps, bg="#FFFFFF", fg=FG, font=("Segoe UI", 10),
-                 justify="left", padx=14, pady=12).pack(fill="x", pady=(12, 4))
+        self._explain = tk.Label(body, text=explain,
+                                 bg=BG, fg=FG, font=("Segoe UI", 10),
+                                 wraplength=440, justify="left")
+        self._explain.pack(anchor="w")
+        self._steps = tk.Label(body, text=steps, bg="#FFFFFF", fg=FG,
+                               font=("Segoe UI", 10), justify="left",
+                               padx=14, pady=12)
+        self._steps.pack(fill="x", pady=(12, 4))
 
         self._status = tk.Label(body, text="", bg=BG, fg=FG_MUTED,
                                 font=("Segoe UI", 9), wraplength=440,
@@ -452,6 +461,7 @@ class PermissionWindow(tk.Toplevel):
 
         footer = tk.Frame(self, bg=BG, padx=20, pady=14)
         footer.pack(fill="x")
+        self._footer = footer
         if self._misplaced():
             ttk.Button(footer, text="Open Applications folder",
                        style="Accent.TButton",
@@ -500,18 +510,12 @@ class PermissionWindow(tk.Toplevel):
             return
         self._done = True
         self._cancel_poll()
-        # The answer goes on screen first. Rebuilding the listener reaches
-        # into the system, and if that ever fails the user still has to be
-        # able to see that the permission itself went through. Getting this
-        # order wrong is why a granted permission read as refused.
-        self._status.configure(
-            text="Granted. Try holding the dictation key. If it still does "
-                 "nothing, quit Coconut Whisper from the menu bar and open it "
-                 "again.")
-        try:
-            self.update_idletasks()
-        except tk.TclError:
-            pass
+        # The answer takes over the whole window, before anything else runs.
+        # Rebuilding the listener reaches into the system, and if that fails
+        # the user still has to see that the permission went through. Leaving
+        # the old heading and the old steps up while a small grey line below
+        # claimed success is how a working app read as a broken one.
+        self._celebrate()
         # Reading the layout again here picks up an input source changed
         # while the app was waiting, and does it on the interface thread.
         prime_keyboard_layout()
@@ -523,6 +527,35 @@ class PermissionWindow(tk.Toplevel):
             log.exception("the listener did not come back after the grant")
             return
         log.info("accessibility permission granted, listener restarted")
+
+    def _celebrate(self) -> None:
+        """Turns the whole window into the answer, then shows itself out."""
+        try:
+            key = describe(self.app.settings.get("hotkey"))
+        except Exception:
+            key = "the dictation key"
+        try:
+            self.title(APP_NAME + " is ready")
+            self._headline.configure(text="That did it")
+            self._subhead.configure(
+                text="Coconut Whisper can see the dictation key now.")
+            self._explain.configure(
+                text="Click into any text box, hold " + key + " and talk. Let go "
+                     "when you are done and the text appears where the cursor is. "
+                     "This window closes on its own.")
+            # Destroyed, not just unpacked: nothing that contradicts the
+            # answer should survive anywhere in this window.
+            self._steps.destroy()
+            self._status.configure(text="")
+            for child in self._footer.winfo_children():
+                child.destroy()
+            ttk.Button(self._footer, text="Close", style="Accent.TButton",
+                       command=self._close).pack(side="right")
+            self.update_idletasks()
+            self.after(PERMISSION_CLOSE_MS, self._close)
+        except tk.TclError:
+            log.debug("the permission window went away mid celebration",
+                      exc_info=True)
 
     def _cancel_poll(self) -> None:
         if self._poll_id is not None:
@@ -536,7 +569,12 @@ class PermissionWindow(tk.Toplevel):
         self._cancel_poll()
         self._done = True
         PermissionWindow._open = None
-        self.destroy()
+        # The window closes itself after a grant, so a button press or a
+        # caller doing the same must not land on an already dead widget.
+        try:
+            self.destroy()
+        except tk.TclError:
+            pass
 
     def _center(self) -> None:
         self.update_idletasks()
