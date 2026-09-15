@@ -86,7 +86,16 @@ class HotkeyListener:
 
     def configure(self, spec: str, mode: str) -> None:
         with self._lock:
-            self._required = parse(spec)
+            wanted = parse(spec)
+            if wanted != self._required:
+                # Whatever is held right now was held under the old hotkey.
+                # Left in place, those tokens can never satisfy the new spec,
+                # so the release that should end the current dictation is
+                # silently ignored and the app records until something else
+                # stops it. Changing the key mid hold is exactly how that was
+                # found.
+                self._held.clear()
+            self._required = wanted
             self._mode = mode
             if self._active and mode == "hold":
                 self._active = False
@@ -188,7 +197,19 @@ class HotkeyListener:
     def _fire(self, callback, active: bool) -> None:
         with self._lock:
             self._active = active
-        threading.Thread(target=callback, daemon=True).start()
+
+        def run() -> None:
+            try:
+                callback()
+            except Exception:
+                # This used to go to stderr, which a packaged app does not
+                # have, so a failure here left the app believing it was still
+                # recording with nothing written down anywhere.
+                log.exception("the hotkey callback failed")
+                with self._lock:
+                    self._active = False
+
+        threading.Thread(target=run, daemon=True).start()
 
     def reset(self) -> None:
         with self._lock:

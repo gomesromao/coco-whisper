@@ -25,7 +25,7 @@ from .transcribe import Engine
 
 log = logging.getLogger("cocowhisper")
 
-VERSION = "0.1.11"
+VERSION = "0.1.12"
 
 # Only the newest entries keep what was actually said. Older ones keep the
 # timing and language, which is what support questions need, and the file is
@@ -36,6 +36,11 @@ HISTORY_MAX_ENTRIES = 500
 # How often the interface loop looks for work handed over by other threads.
 # Short enough that the overlay still feels instant when the key goes down.
 PUMP_MS = 40
+# How long the app is allowed to disagree with itself about whether it is
+# recording before the disagreement is treated as a fault. The real handoff
+# between the recorder stopping and the transcription starting takes
+# milliseconds, so this only ever catches something that broke.
+RECONCILE_GRACE = 2.0
 
 
 def resource_path(*parts: str) -> Path:
@@ -71,6 +76,28 @@ def setup_crash_log() -> None:
         faulthandler.enable(file=_crash_file, all_threads=True)
     except OSError:
         log.debug("crash log unavailable", exc_info=True)
+
+
+def setup_thread_logging() -> None:
+    """Sends what a loose thread raises to the log file.
+
+    Every worker in this app is a plain Thread, and Python hands an exception
+    in one to stderr, which a packaged .app does not have. A failure while
+    closing out a dictation went that way: the app sat there looking like it
+    was recording for six minutes and the log had not one word about it.
+    """
+    def in_thread(args) -> None:
+        if args.exc_type is SystemExit:
+            return
+        name = args.thread.name if args.thread is not None else "a thread"
+        log.error("unhandled error in %s", name,
+                  exc_info=(args.exc_type, args.exc_value, args.exc_traceback))
+
+    def on_main(exc_type, exc, tb) -> None:
+        log.error("unhandled error", exc_info=(exc_type, exc, tb))
+
+    threading.excepthook = in_thread
+    sys.excepthook = on_main
 
 
 def setup_logging() -> None:
@@ -148,6 +175,9 @@ class App:
         self.last_text = ""
         self._busy = threading.Lock()
         self._auto_stop: threading.Timer | None = None
+        # When the state first stopped matching the microphone, or None while
+        # the two agree.
+        self._mismatch_since: float | None = None
         # Who was in front when the key went down, so the text can be given
         # back to them if anything of ours steals the focus meanwhile.
         self._caller = None
@@ -197,10 +227,38 @@ class App:
                 fn()
             except Exception:
                 log.exception("queued interface work failed")
+        self._reconcile()
         try:
             self.root.after(PUMP_MS, self._pump)
         except (tk.TclError, RuntimeError):
             log.debug("interface gone, the queue stops here", exc_info=True)
+
+    def _reconcile(self) -> None:
+        """Catches the app claiming to record while the microphone is shut.
+
+        That combination is not a state the app can reach on purpose, and it
+        is what a user sees as frozen: the overlay says Listening, the key
+        does nothing, and no amount of waiting helps because the thing that
+        was supposed to end the dictation already died. Rather than trust that
+        every path out of recording is perfect, the app checks.
+        """
+        if self.state != "recording" or self.recorder.is_recording:
+            self._mismatch_since = None
+            return
+        now = time.monotonic()
+        if self._mismatch_since is None:
+            self._mismatch_since = now
+            return
+        if now - self._mismatch_since < RECONCILE_GRACE:
+            return
+        self._mismatch_since = None
+        log.warning("the app said it was recording while the microphone was "
+                    "shut: going back to idle")
+        try:
+            self.overlay.hide()
+        except Exception:
+            log.debug("the overlay was already gone", exc_info=True)
+        self.set_state("idle")
 
     def run(self) -> None:
         self.listener.configure(
@@ -281,14 +339,46 @@ class App:
         self._arm_auto_stop()
 
     def stop_dictation(self) -> None:
+        """Closes out a dictation, and never leaves the app mid air if it cannot.
+
+        Something in here failed on a Mac and took the rest of the method with
+        it: the overlay stayed on Listening, nothing was pasted, and the app
+        sat there looking busy while the microphone was already shut. Whatever
+        goes wrong, the app ends up back at idle.
+        """
+        try:
+            self._stop_dictation()
+        except Exception:
+            log.exception("the dictation could not be closed out")
+            self._recover_idle()
+
+    def _recover_idle(self) -> None:
+        """Puts everything back the way idle looks, and says so out loud."""
         self._disarm_auto_stop()
+        try:
+            self.recorder.stop()
+        except Exception:
+            log.debug("the recorder was already gone", exc_info=True)
+        try:
+            self.overlay.hide()
+        except Exception:
+            log.debug("the overlay was already gone", exc_info=True)
+        self.set_state("idle")
+        self.beep("error")
+
+    def _stop_dictation(self) -> None:
         if not self.recorder.is_recording:
+            self._disarm_auto_stop()
             log.info("key released with nothing recording")
             return
         buffer, peak = self.recorder.stop()
-        self.beep("stop")
         seconds = buffer.size / audio.SAMPLE_RATE
         log.info("dictation stopped: %.2fs captured, peak %.4f", seconds, peak)
+        # Disarmed only now. Doing it on the first line meant that any failure
+        # above took the safety net down with it, which is why a stuck
+        # recording ran for six minutes instead of ending itself after three.
+        self._disarm_auto_stop()
+        self.beep("stop")
 
         if buffer.size == 0:
             # The stream opened and not one block arrived. On Windows this is
@@ -558,6 +648,7 @@ class App:
 
 def main() -> None:
     setup_logging()
+    setup_thread_logging()
     setup_crash_log()
     if not claim_single_instance():
         log.info("another instance is already running")

@@ -1,5 +1,6 @@
 """Quick checks for the pieces that do not need a GUI."""
 import sys
+import time
 
 from app import hotkey, platform_support, postprocess
 
@@ -37,6 +38,39 @@ results.append(check("hotkey describe", hotkey.describe("f9"), "F9"))
 results.append(check("hotkey describe drops the recommendation",
     "(recommended)" in hotkey.describe(platform_support.default_hotkey()),
     False))
+
+
+# ---------- the hotkey state machine ----------
+# Tyler changed the hotkey with the old key still held, and the dictation it
+# had started could never be ended: the tokens of the old key sat in _held
+# where no release could clear them, and the app recorded for six minutes.
+def held_is_cleared_on_change():
+    listener = hotkey.HotkeyListener(lambda: None, lambda: None)
+    listener.configure("right_ctrl", "hold")
+    listener._held = {"right_ctrl": 0.0, "ctrl": 0.0}
+    listener.configure("right_alt", "hold")
+    return listener._held
+
+results.append(check("changing the hotkey lets go of the old keys",
+    held_is_cleared_on_change(), {}))
+
+
+# A callback that raises used to go to stderr, which a packaged app does not
+# have, and left _active stuck true so every later press was ignored.
+def active_survives_a_failing_callback():
+    def boom():
+        raise RuntimeError("the stop path died")
+
+    listener = hotkey.HotkeyListener(boom, boom)
+    listener._fire(listener._on_start, True)
+    for _ in range(200):
+        if not listener._active:
+            break
+        time.sleep(0.01)
+    return listener._active
+
+results.append(check("a failing callback does not wedge the hotkey",
+    active_survives_a_failing_callback(), False))
 
 print("\n%d/%d passed" % (sum(results), len(results)))
 # Without this the step is decorative: a failing check still printed and

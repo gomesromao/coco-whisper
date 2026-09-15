@@ -67,7 +67,13 @@ class Recorder:
         stream, self._stream = self._stream, None
         if stream is not None:
             try:
-                stream.stop()
+                # abort, not stop: stop() asks PortAudio to drain its pending
+                # buffers first, and that wait can hang on macOS. When it does,
+                # it hangs the thread that was closing out the dictation, so
+                # the overlay stays up, nothing is pasted, and not one line is
+                # written anywhere. Push to talk has nothing to drain for: the
+                # audio is already in _chunks by the time we get here.
+                stream.abort()
                 stream.close()
             except Exception:  # already closed or device vanished
                 log.exception("failed to close input stream")
@@ -76,7 +82,12 @@ class Recorder:
             self._chunks = []
         if not chunks:
             return np.zeros(0, dtype="float32"), 0.0
-        return np.concatenate(chunks).astype("float32"), peak
+        try:
+            return np.concatenate(chunks).astype("float32"), peak
+        except Exception:
+            # Losing the take is bad. Taking the app down with it is worse.
+            log.exception("the captured audio could not be assembled")
+            return np.zeros(0, dtype="float32"), 0.0
 
     @property
     def seconds(self) -> float:
