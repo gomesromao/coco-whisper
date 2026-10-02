@@ -82,14 +82,18 @@ jobs:
         run: python test_core.py
       - name: Build
         run: pyinstaller --noconfirm --clean --distpath dist --workpath .pybuild build/CoconutWhisper.spec
-      - name: Sign the bundle
-        # Ad hoc signature. It is not notarised, so Gatekeeper still asks the
-        # user to confirm, but the bundle is at least internally consistent.
-        run: codesign --force --deep --sign - "dist/Coconut Whisper.app"
+      - name: Sign the bundle with the team certificate
+        # Same certificate on every build, so the Accessibility permission
+        # survives updates. Still not notarised: Gatekeeper asks once per
+        # download. A tag build without the secret fails here on purpose.
+        env:
+          MAC_SIGNING_P12: ${{ secrets.MAC_SIGNING_P12 }}
+          MAC_SIGNING_PASSWORD: ${{ secrets.MAC_SIGNING_PASSWORD }}
+        run: bash build/mac/sign.sh "dist/Coco Whisper.app"
       - name: Verify the packaged app can load every module it needs
         run: |
-          test -d "dist/Coconut Whisper.app"
-          "dist/Coconut Whisper.app/Contents/MacOS/CoconutWhisper" --selftest
+          test -d "dist/Coco Whisper.app"
+          "dist/Coco Whisper.app/Contents/MacOS/CocoWhisper" --selftest
       - name: Run the packaged app for real
         # The imports above only prove the bundle is complete. This starts the
         # hotkey listener, the menu bar item and the windows, and drives them
@@ -97,16 +101,15 @@ jobs:
         # and none of them raised anything, so the check is whether the process
         # is still alive at the end. Accessibility cannot be granted on a
         # runner, so the path after a permission is allowed stays uncovered.
-        run: '"dist/Coconut Whisper.app/Contents/MacOS/CoconutWhisper" --runtime-test'
-      - name: Zip the app
-        run: |
-          cd dist
-          ditto -c -k --keepParent "Coconut Whisper.app" "CoconutWhisper-macOS-${{ matrix.label }}.zip"
-          ls -lh CoconutWhisper-macOS-${{ matrix.label }}.zip
+        run: '"dist/Coco Whisper.app/Contents/MacOS/CocoWhisper" --runtime-test'
+      - name: Pack the disk image
+        # The app, a shortcut to Applications and READ ME FIRST.txt, so the
+        # download itself shows where the app goes and what comes next.
+        run: bash build/mac/pack_dmg.sh "dist/Coco Whisper.app" "dist/CocoWhisper-macOS-${{ matrix.label }}.dmg"
       - uses: actions/upload-artifact@v4
         with:
           name: macos-${{ matrix.label }}
-          path: dist/CoconutWhisper-macOS-${{ matrix.label }}.zip
+          path: dist/CocoWhisper-macOS-${{ matrix.label }}.dmg
 
   # The release builds run on the oldest macOS we support, which is exactly
   # where the newest rules have not landed yet. Every crash the team has hit
@@ -140,10 +143,13 @@ jobs:
         run: python test_core.py
       - name: Build
         run: pyinstaller --noconfirm --clean --distpath dist --workpath .pybuild build/CoconutWhisper.spec
-      - name: Sign the bundle
-        run: codesign --force --deep --sign - "dist/Coconut Whisper.app"
+      - name: Sign the bundle with the team certificate
+        env:
+          MAC_SIGNING_P12: ${{ secrets.MAC_SIGNING_P12 }}
+          MAC_SIGNING_PASSWORD: ${{ secrets.MAC_SIGNING_PASSWORD }}
+        run: bash build/mac/sign.sh "dist/Coco Whisper.app"
       - name: Run the packaged app for real
-        run: '"dist/Coconut Whisper.app/Contents/MacOS/CoconutWhisper" --runtime-test'
+        run: '"dist/Coco Whisper.app/Contents/MacOS/CocoWhisper" --runtime-test'
 
   release:
     needs: [windows, macos]
@@ -162,8 +168,8 @@ jobs:
         run: |
           set -e
           exe=artifacts/windows/CoconutWhisper.exe
-          arm=artifacts/macos-AppleSilicon/CoconutWhisper-macOS-AppleSilicon.zip
-          intel=artifacts/macos-Intel/CoconutWhisper-macOS-Intel.zip
+          arm=artifacts/macos-AppleSilicon/CocoWhisper-macOS-AppleSilicon.dmg
+          intel=artifacts/macos-Intel/CocoWhisper-macOS-Intel.dmg
 
           test -f "$exe" || { echo "the Windows build is missing"; exit 1; }
           test -f "$arm" || { echo "the Apple Silicon build is missing"; exit 1; }
@@ -182,9 +188,7 @@ jobs:
             --notes "Local dictation for the team. Hold the dictation key, speak, release.
 
           Windows: download CoconutWhisper.exe and run it.
-          Mac: download the zip that matches your Mac, unzip it, and move Coconut Whisper into Applications before opening it. Opened from anywhere else, macOS gives it a new temporary location on every launch and the Accessibility permission never sticks.
-
-          Updating on a Mac: in System Settings, Privacy and Security, Accessibility, remove the old Coconut Whisper entry with the minus button before opening the new version. Every version is a different app to macOS, so the old entry keeps the switch looking on while the app is still refused.
+          Mac: the app is called Coco Whisper now. Download the dmg that matches your Mac, open it and follow READ ME FIRST.txt inside. Short version: drag Coco Whisper onto Applications, open it, click Open Anyway in Privacy and Security, then switch it on under Accessibility. Every build is signed with the same certificate, so that permission now survives updates.
 
           The speech model downloads once on first launch, then everything runs offline." \
             $files

@@ -1,0 +1,50 @@
+COCO WHISPER FOR MAC
+Hold a key, talk, let go. Your words appear wherever the cursor is.
+Setup takes about two minutes and you only do it once.
+
+
+IF YOU HAD THE OLD "COCONUT WHISPER" BEFORE
+  1. Click the microphone icon at the top right of your screen and choose Quit.
+  2. In Applications, drag Coconut Whisper to the Trash.
+  That's all. Your settings and the speech model carry over.
+
+
+INSTALL
+  1. In this window, drag Coco Whisper onto the Applications folder.
+
+  2. Open your Applications folder and double click Coco Whisper.
+     macOS will say it "could not verify" the app. Click Done (or Cancel).
+     (The app is built by our team, not sold on the App Store, so Apple
+     asks this once.)
+
+  3. Open System Settings > Privacy & Security, scroll to the bottom,
+     and click "Open Anyway" next to Coco Whisper. Type your Mac password
+     if it asks, then click Open.
+
+  4. A small Coco Whisper window appears asking for one permission.
+     Click "Ask macOS", then "Open System Settings" in the box macOS shows,
+     and switch Coco Whisper on.
+     The app closes and reopens by itself. That's expected.
+
+  5. The first time you dictate, macOS asks to use the microphone.
+     Click Allow.
+
+
+USE IT
+  Click into any text box (Slack, Gmail, anywhere).
+  Hold the RIGHT Command key and talk. Let go when you're done.
+  The text appears a second or two later.
+  The app lives in the menu bar at the top right, near the clock.
+  It has no window and no Dock icon.
+
+
+UPDATING LATER
+  Download the new version, open it, and drag Coco Whisper onto Applications.
+  Choose Replace. The permission from step 4 stays in place.
+  macOS may ask for "Open Anyway" one more time (step 3).
+
+
+IF THE KEY DOES NOTHING
+  Click the microphone icon in the menu bar and choose Permissions.
+  Still stuck? Choose "Open log folder" from the same menu and send
+  app.log to Daniel.

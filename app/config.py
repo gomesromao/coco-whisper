@@ -6,9 +6,12 @@ import logging
 import threading
 from pathlib import Path
 
-from .platform_support import cache_root, config_root, default_hotkey
+from .platform_support import IS_MAC, cache_root, config_root, default_hotkey
 
-APP_NAME = "Coconut Whisper"
+# The Mac build carries its own name. macOS keeps permissions per app, and a
+# fresh name leaves behind the old Coconut Whisper entries that looked on
+# while refusing the key. Settings and the model stay in the same folder.
+APP_NAME = "Coco Whisper" if IS_MAC else "Coconut Whisper"
 
 DEFAULTS: dict = {
     "hotkey": default_hotkey(),

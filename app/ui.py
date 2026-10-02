@@ -431,27 +431,27 @@ class PermissionWindow(tk.Toplevel):
         body.pack(fill="both", expand=True)
 
         if self._misplaced():
-            explain = ("Coconut Whisper is running from the folder it was "
-                       "unzipped into. macOS hands an app opened from there a "
-                       "fresh temporary location on every launch, and it files "
-                       "the permission against that location, so whatever you "
+            explain = (APP_NAME + " is not in your Applications folder yet. "
+                       "macOS hands an app opened from anywhere else a fresh "
+                       "temporary location on every launch, and it files the "
+                       "permission against that location, so whatever you "
                        "allow is gone by the next time you open it.")
             steps = chr(10).join((
-                "1.  Quit Coconut Whisper from the menu bar.",
-                "2.  Drag Coconut Whisper into your Applications folder.",
+                "1.  Quit " + APP_NAME + " from the menu bar.",
+                "2.  Drag " + APP_NAME + " into your Applications folder.",
                 "3.  Open it from there, and the permission will hold.",
             ))
         else:
-            explain = ("Coconut Whisper watches for the dictation key, and "
+            # Every build is signed with the same certificate now, so the
+            # grant survives updates and there is no old entry to remove.
+            explain = (APP_NAME + " watches for the dictation key, and "
                        "macOS calls that Accessibility. Until it is allowed, "
-                       "holding the key does nothing at all. Every new version "
-                       "counts as a different app to macOS, so an entry left "
-                       "over from the previous one has to go first.")
+                       "holding the key does nothing at all. You only do this "
+                       "once: updates keep the permission.")
             steps = chr(10).join((
-                "1.  Open System Settings, Privacy and Security, Accessibility.",
-                "2.  If Coconut Whisper is already in the list, select it and "
-                "remove it with the minus button.",
-                "3.  Come back here and click Ask macOS.",
+                "1.  Click Ask macOS below.",
+                "2.  In the box macOS shows, click Open System Settings.",
+                "3.  Switch " + APP_NAME + " on. The app restarts by itself.",
             ))
         self._explain = tk.Label(body, text=explain,
                                  bg=BG, fg=FG, font=("Segoe UI", 10),
@@ -485,8 +485,8 @@ class PermissionWindow(tk.Toplevel):
     def _open_settings(self) -> None:
         open_accessibility_settings()
         self._status.configure(
-            text="System Settings is open. Switch Coconut Whisper on, then come "
-                 "back and click Check again.")
+            text="System Settings is open. Switch " + APP_NAME + " on and "
+                 "this window notices by itself.")
 
     def _request(self) -> None:
         """Asks macOS to list us, which is the step people cannot find."""
@@ -494,9 +494,9 @@ class PermissionWindow(tk.Toplevel):
             self._granted()
             return
         self._status.configure(
-            text="Not allowed yet. macOS shows its dialog once per version, "
-                 "so if nothing appeared, remove the old Coconut Whisper "
-                 "entry in Accessibility and click here again.")
+            text="Not allowed yet. Click Open System Settings and switch "
+                 + APP_NAME + " on. If it is not in the list, click the plus "
+                 "button and pick it from Applications.")
 
     def _poll(self) -> None:
         """Watches for the grant so nobody has to come back and click.
@@ -531,7 +531,7 @@ class PermissionWindow(tk.Toplevel):
                 self._status.configure(
                     text="macOS accepted it, but this copy is handed a new "
                          "location every time it opens, so the permission is "
-                         "gone by the next launch. Move Coconut Whisper into "
+                         "gone by the next launch. Move " + APP_NAME + " into "
                          "Applications and open it from there.")
             except tk.TclError:
                 log.debug("the permission window went away", exc_info=True)
@@ -568,7 +568,7 @@ class PermissionWindow(tk.Toplevel):
                 text="One restart and the dictation key is yours.")
             self._explain.configure(
                 text="macOS only hands this permission to an app as it starts, "
-                     "so Coconut Whisper has to close and open again before it "
+                     "so " + APP_NAME + " has to close and open again before it "
                      "can see the key. It does that itself, right now, and is "
                      "back in the menu bar in a few seconds. Then click into "
                      "any text box, hold " + key + " and talk.")
@@ -608,7 +608,7 @@ class PermissionWindow(tk.Toplevel):
             self._subhead.configure(
                 text="The permission is in place, the keyboard is not yet.")
             self._explain.configure(
-                text="macOS hands this out as an app starts, so Coconut Whisper "
+                text="macOS hands this out as an app starts, so " + APP_NAME + " "
                      "has to be opened again before it can see the key. Quit it "
                      "from the menu bar and open it once more.")
         except tk.TclError:
@@ -625,7 +625,7 @@ class PermissionWindow(tk.Toplevel):
             self.title(APP_NAME + " is ready")
             self._headline.configure(text="That did it")
             self._subhead.configure(
-                text="Coconut Whisper can see the dictation key now.")
+                text=APP_NAME + " can see the dictation key now.")
             self._explain.configure(
                 text="Click into any text box, hold " + key + " and talk. Let go "
                      "when you are done and the text appears where the cursor is. "

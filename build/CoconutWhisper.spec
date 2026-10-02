@@ -73,7 +73,7 @@ if IS_MAC:
         a.scripts,
         [],
         exclude_binaries=True,
-        name="CoconutWhisper",
+        name="CocoWhisper",
         debug=False,
         strip=False,
         upx=False,
@@ -86,17 +86,22 @@ if IS_MAC:
         a.datas,
         strip=False,
         upx=False,
-        name="CoconutWhisper",
+        name="CocoWhisper",
     )
+    # A new name and identifier on the Mac on purpose: macOS keeps the
+    # Accessibility switch per app, and the Coconut Whisper entries left by
+    # the ad hoc builds looked on while refusing the key. From here on every
+    # build is signed with the same certificate, so this one entry survives
+    # updates.
     app = BUNDLE(
         coll,
-        name="Coconut Whisper.app",
+        name="Coco Whisper.app",
         icon=icon,
-        bundle_identifier="com.coconutva.whisper",
+        bundle_identifier="com.coconutva.cocowhisper",
         version=APP_VERSION,
         info_plist={
-            "CFBundleName": "Coconut Whisper",
-            "CFBundleDisplayName": "Coconut Whisper",
+            "CFBundleName": "Coco Whisper",
+            "CFBundleDisplayName": "Coco Whisper",
             "CFBundleShortVersionString": APP_VERSION,
             "CFBundleVersion": APP_VERSION,
             # menu bar app, no icon in the dock
@@ -104,10 +109,10 @@ if IS_MAC:
             "LSMinimumSystemVersion": "12.0",
             "NSHighResolutionCapable": True,
             "NSMicrophoneUsageDescription":
-                "Coconut Whisper listens while you hold the dictation key and "
+                "Coco Whisper listens while you hold the dictation key and "
                 "turns your speech into text on this Mac.",
             "NSAppleEventsUsageDescription":
-                "Coconut Whisper pastes the text you dictated into the app you "
+                "Coco Whisper pastes the text you dictated into the app you "
                 "are using.",
         },
     )

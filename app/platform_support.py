@@ -507,6 +507,24 @@ def set_startup(enabled: bool) -> bool:
         return False
 
 
+
+def refresh_startup() -> None:
+    """Points start at login at this copy when it still points elsewhere.
+
+    The Mac app changed name, so a login item saved by Coconut Whisper keeps
+    opening an app that has since gone to the Trash, while Settings shows the
+    switch on. Rewriting it here keeps the switch honest.
+    """
+    if not IS_MAC or not getattr(sys, "frozen", False) or not LAUNCH_AGENT.exists():
+        return
+    try:
+        if sys.executable in LAUNCH_AGENT.read_text(encoding="utf-8"):
+            return
+    except OSError:
+        return
+    if set_startup(True):
+        log.info("start at login now opens this copy")
+
 # ---------- dialogs ----------
 
 DIALOG_TIMEOUT = 20.0

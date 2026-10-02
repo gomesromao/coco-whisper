@@ -69,7 +69,7 @@ python -m venv .venv
 
 On Windows the result is a single `dist/CoconutWhisper.exe`, about 100 MB, with
 no installer and no Python needed on the target machine. On macOS the same spec
-produces `dist/Coconut Whisper.app`, a menu bar app (`LSUIElement`) carrying the
+produces `dist/Coco Whisper.app` (the Mac build has its own name), a menu bar app (`LSUIElement`) carrying the
 microphone usage description macOS requires.
 
 Nobody has to own both machines: `.github/workflows/build.yml` builds Windows,
@@ -80,9 +80,12 @@ publishes the release itself with the workflow token. Tag and push:
 git tag v0.1.0 && git push origin v0.1.0
 ```
 
-macOS builds are ad hoc signed but not notarised, so Gatekeeper asks the user to
-confirm on first launch, and the app needs Accessibility permission for the
-global hotkey and the paste. The download page explains both.
+macOS builds are signed with a fixed self signed certificate (secrets
+`MAC_SIGNING_P12` and `MAC_SIGNING_PASSWORD`, see `build/mac/sign.sh`) and are
+not notarised. Gatekeeper still asks once per download, but the Accessibility
+permission is tied to the certificate instead of to each build, so it survives
+updates. A tag build without the secret fails on purpose. The Mac download is a
+dmg with the app, a shortcut to Applications and `build/mac/READ ME FIRST.txt`.
 
 ## Tests
 

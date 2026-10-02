@@ -19,13 +19,13 @@ from .config import APP_NAME, Settings, data_dir, logs_dir, recordings_dir
 from .overlay import Overlay
 from .platform_support import (IS_MAC, claim_single_instance, frontmost_app,
                                input_monitoring_ready, open_folder, play_tone,
-                               prime_keyboard_layout, relaunch, return_focus,
-                               show_message)
+                               prime_keyboard_layout, refresh_startup, relaunch,
+                               return_focus, show_message)
 from .transcribe import Engine
 
 log = logging.getLogger("cocowhisper")
 
-VERSION = "0.1.12"
+VERSION = "0.2.0"
 
 # Only the newest entries keep what was actually said. Older ones keep the
 # timing and language, which is what support questions need, and the file is
@@ -652,13 +652,17 @@ def main() -> None:
     setup_crash_log()
     if not claim_single_instance():
         log.info("another instance is already running")
-        show_message(
-            APP_NAME,
-            APP_NAME + " is already running. Look for the microphone icon in the "
-            "menu bar or the system tray.",
-        )
+        text = (APP_NAME + " is already running. Look for the microphone icon "
+                "in the menu bar or the system tray.")
+        if IS_MAC:
+            # The old Coconut Whisper holds the same lock, and on the first
+            # day of the new name it is the likelier one to be in the way.
+            text += (" If the old Coconut Whisper is still open, quit it from "
+                     "the menu bar and open " + APP_NAME + " again.")
+        show_message(APP_NAME, text)
         return
     log.info("starting %s %s", APP_NAME, VERSION)
+    refresh_startup()
     App().run()
 
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Using Coconut Whisper on a Mac</title>
+<title>Using Coco Whisper on a Mac</title>
 <meta name="robots" content="noindex">
 <link rel="icon" href="icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,7 +15,7 @@
 
 <header>
   <div class="wrap brand-row">
-    <a class="brand" href="/"><img src="icon.png" alt=""><span>Coconut Whisper</span></a>
+    <a class="brand" href="/"><img src="icon.png" alt=""><span>Coco Whisper</span></a>
     <a class="back" href="/">Back to download</a>
   </div>
 </header>
@@ -28,38 +28,37 @@
 <main class="wrap">
 
   <div class="step">
-    <div class="step-head"><div class="num">1</div><h2>Pick the right file, then unzip it</h2></div>
+    <div class="step-head"><div class="num">1</div><h2>Pick the right file, then drag it to Applications</h2></div>
     <p>Apple menu, <b>About This Mac</b>. If the chip line says Apple M1, M2, M3 or newer, take the Apple Silicon download. If it says Intel, take the Intel one. The wrong one simply will not open.</p>
-    <p>Unzip, then drag <b>Coconut Whisper</b> into your Applications folder.</p>
-    <div class="note"><b>Move it before you open it.</b> An app opened straight from the folder it was unzipped into gets a fresh temporary location from macOS every single launch, and permissions are filed against a location. Allow it there and the permission is gone by the next launch, which looks exactly like the app ignoring you.</div>
+    <p>Open the download. A window appears with <b>Coco Whisper</b>, a shortcut to <b>Applications</b> and <b>READ ME FIRST.txt</b>. Drag Coco Whisper onto Applications.</p>
+    <div class="note"><b>Had the old Coco Whisper?</b> Quit it from the menu bar and drag it from Applications to the Trash. Your settings and the speech model carry over to Coco Whisper.</div>
   </div>
 
   <div class="step">
-    <div class="step-head"><div class="num">2</div><h2>Open it the first time with a right click</h2></div>
-    <p>Right click the app and choose <b>Open</b>, then confirm in the box that appears. A normal double click gets refused the first time, because the app is not notarised with Apple.</p>
-    <p>If macOS still blocks it, go to <b>System Settings</b>, <b>Privacy and Security</b>, scroll down, and click <b>Open Anyway</b>.</p>
+    <div class="step-head"><div class="num">2</div><h2>Allow it once in Privacy and Security</h2></div>
+    <p>Open Coco Whisper from Applications. macOS says it could not verify the app, because it is not notarised with Apple. Click <b>Done</b>.</p>
+    <p>Go to <b>System Settings</b>, <b>Privacy and Security</b>, scroll down, and click <b>Open Anyway</b> next to Coco Whisper.</p>
     <div class="note">Stuck on a message saying the app is damaged? Open Terminal and paste this, then try again:<br>
-      <code>xattr -dr com.apple.quarantine "/Applications/Coconut Whisper.app"</code></div>
+      <code>xattr -dr com.apple.quarantine "/Applications/Coco Whisper.app"</code></div>
   </div>
 
   <div class="step">
     <div class="step-head"><div class="num">3</div><h2>Give it the two permissions it needs</h2></div>
+    <p><b>Accessibility</b>, so it can notice the dictation key and paste the text for you. The app opens a small window for this: click <b>Ask macOS</b>, then <b>Open System Settings</b>, and switch <b>Coco Whisper</b> on. The app closes and reopens by itself.</p>
     <p><b>Microphone</b>, so it can hear you. macOS asks the first time you dictate, just say yes.</p>
-    <p><b>Accessibility</b>, so it can notice the dictation key and paste the text for you. macOS does not always ask, so set it yourself: <b>System Settings</b>, <b>Privacy and Security</b>, <b>Accessibility</b>, then switch <b>Coconut Whisper</b> on.</p>
-    <div class="note"><b>This is the one that catches people out.</b> Without Accessibility the app runs, the icon is there, and the key does nothing at all. From version 0.1.6 the app notices this at launch and opens a small window with a button that takes you straight to the right screen.</div>
-    <div class="note"><b>After every update, remove the old entry first.</b> Each new version is a different app as far as macOS is concerned, so the entry left behind by the previous one keeps the switch looking on while the app is still refused. In <b>Accessibility</b>, select <b>Coconut Whisper</b>, remove it with the minus button, then open the app and let it ask again.</div>
+    <div class="note"><b>You only do this once.</b> Every version is signed with the same certificate, so updates keep the permission. To update, drag the new Coco Whisper onto Applications and choose Replace.</div>
   </div>
 
   <div class="step">
     <div class="step-head"><div class="num">4</div><h2>Find the microphone icon in the menu bar</h2></div>
     <p>The app has no window and no dock icon. It lives at the top right of your screen, in the row with the clock, wifi and battery.</p>
     <div class="icon-badge">
-      <img src="img/app-icon.png" alt="The Coconut Whisper icon">
+      <img src="img/app-icon.png" alt="The Coco Whisper icon">
       <span>This is the icon you are looking for</span>
     </div>
     <div class="menu">
       <div>top right of the screen</div>
-      <div>&#127908; &nbsp; Coconut Whisper sits here, near the clock</div>
+      <div>&#127908; &nbsp; Coco Whisper sits here, near the clock</div>
     </div>
     <p>If your menu bar is crowded, the icon can be hidden behind the notch on some MacBooks. Holding Command and dragging menu bar icons rearranges them.</p>
   </div>
@@ -97,7 +96,7 @@
     <p><b>Mode</b> swaps holding the key for pressing once to start and once to stop, which is easier for long dictation.</p>
     <p><b>Sound volume</b> sets how loud the start and stop tones are. It starts quiet, and the Test button plays it at the level you picked.</p>
     <p><b>Word replacements</b> is for words it always gets wrong. One per line, written as <code>spoken = written</code>.</p>
-    <img src="img/win-settings.png" alt="The Coconut Whisper settings window">
+    <img src="img/win-settings.png" alt="The Coco Whisper settings window">
     <p class="caption">The settings window, captured on Windows. The Mac one has the same rows in the same order, drawn with Mac controls.</p>
   </div>
 
@@ -108,7 +107,7 @@
     <h2>When something is off</h2>
     <details>
       <summary>I hold the key and nothing happens</summary>
-      <p>Nine times out of ten this is the Accessibility permission from step three. Check System Settings, Privacy and Security, Accessibility, and make sure Coconut Whisper is switched on. If you had it on already, switch it off and on again after updating the app.</p>
+      <p>Nine times out of ten this is the Accessibility permission from step three. Check System Settings, Privacy and Security, Accessibility, and make sure Coco Whisper is switched on. The menu bar icon also has a Permissions item that checks it for you.</p>
     </details>
     <details>
       <summary>Right Command does nothing but another key works</summary>
