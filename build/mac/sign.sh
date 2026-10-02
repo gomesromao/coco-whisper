@@ -30,7 +30,15 @@ P12="$RUNNER_TEMP/coco-signing.p12"
 security create-keychain -p "$KC_PASS" "$KC"
 security set-keychain-settings -lut 21600 "$KC"
 security unlock-keychain -p "$KC_PASS" "$KC"
-printf '%s' "$MAC_SIGNING_P12" | base64 --decode > "$P12"
+printf '%s' "$MAC_SIGNING_P12" | tr -d ' \r\n' | base64 --decode > "$P12" || true
+# Says what arrived without showing it. The certificate is about 2.5 KB of
+# DER, which always opens with byte 30. Anything else means the secret holds
+# something other than the base64 of signing.p12.
+echo "secret: ${#MAC_SIGNING_P12} characters, decoded to $(wc -c < "$P12" | tr -d ' ') bytes, first byte $(head -c1 "$P12" | xxd -p)"
+if [ "$(head -c1 "$P12" | xxd -p)" != "30" ]; then
+  echo "::error::MAC_SIGNING_P12 is not the base64 of signing.p12. Set it again from the clipboard."
+  exit 1
+fi
 security import "$P12" -k "$KC" -P "$MAC_SIGNING_PASSWORD" -T /usr/bin/codesign
 rm -f "$P12"
 # without this codesign stops at a password prompt nobody can answer
